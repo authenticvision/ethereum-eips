@@ -37,9 +37,17 @@ Additionally or alternatively NFTs according to this proposed standard allow to 
 
 The proposed standard primarily aims to onboard physical assets into dApps, which do not have digital processing capabilities. Especially such, which do not have signing-capabilities of their own (contrary to EIP-5791's approach using crypto-chip based solutions). Note that we do not see any restrictions on using the proposed standard for digital or abstract off-chain `ASSETS`.
 
-We propose in this standard to technically limit the number of transfers of a token according to ERC-721, while conceptually still enabling an unliminted number of transfers. Transfers are solely authorized through under the pre-condition of an `ORACLE` verifying that whoever specifies the `to` address has been simultanously been in control over the `ASSET`. Transfers shall not require signature or approval from neither the `from` nor `to` account, i.e. making transfers permissionless. Ideally, signing the transaction is independent from the `ORACLE` as well, allowing different scenarios in terms of gas-fees.
+We propose in this standard to complement the existing transfer control mechanisms of a token according to ERC-721, `Approval` according to EIP-721 and `Permit` according to EIP-4494, by another mechanism `ATTESTATION`. `ATTESTATION` is solely issued under the pre-condition of an `ORACLE` verifying that whoever specifies the `to` address has simultanously been in control over the `ASSET`.
 
-Thus - and this may be counter-intuitive - the anchored NFT can only be transfered through transfering the ASSET. This can be seen as an extreme decentralized/self-custody approach, as it extends to the ASSET, in particular for physical ASSETS even into the physical world. Phygitals implemented with the proposed standard can be traded physically in any traditionally known way, including trading against FIAT, gifting or just swapping for other physical goods (which do not necessarly need to be phygital).  
+Transfers with `ATTESTATION` shall not require signature or approval from neither the `from` nor `to` account, i.e. making transfers permissionless. Ideally, signing the transaction is independent from the `ORACLE` as well, allowing different scenarios in terms of gas-fees.
+
+Tokens according to ERC-721 that implement this standard are named `ANCHORs`.
+
+Driven by the use case, we propose further properties of the `ATTESTATION` in this standard:
+
+- A `AllowTransferMode` that is set immutably at contract creation time and allows to limit the authorization mechanisms allowed to transfer. (e.g. AllowTransferAttestation, AllowTransferAttestationBurn, AllowTransferAll)
+- A limit of `ATTESTATIONs` that can be issued per token, and an indication `AttestationMode` wether this limit is mutable. (e.g. LimitImmutable, LimitIncreaseOnly, LimitMutable)
+- A means to block transfer by `ATTESTATION` and through pre-approved operators under certain conditions and an immutable indication wether it's blockable.. (e.g. block all transfers until DeFi Loan is paid off.)
 
 Lastly, the proposed transfer-mechanism has two major side-benefits, which drastically lower hurdles for onboarding web2 users and increase their security;
 
