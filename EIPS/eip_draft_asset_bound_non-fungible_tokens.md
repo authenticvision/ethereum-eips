@@ -11,39 +11,48 @@ requires: 721, 165
 ---
 
 ## Abstract
+
 This standard aims to onboard "plain" physical and digital assets without signing capabilities into dApps/web3 by extending ERC-721.
 
-An asset, e.g. a physical object, is equipped with a `ANCHOR` technology. The `ANCHOR` technology must be chosen s.t. it allows to uniquely identify the `ASSET`. The `ANCHOR` technology further needs to enable proofing control over the asset through an `ORACLE` technology. For physical assets, Proof of Control is done by proofing physical presence. By wrapping the `ANCHOR` in a token we can represent each ASSET 1:1 on-chain. 
+An asset, e.g. a physical object, is equipped with a `ANCHOR` technology. The `ANCHOR` technology must be chosen s.t. it allows to uniquely identify the `ASSET`. The `ANCHOR` technology further needs to enable proofing control over the asset through an `ORACLE` technology. For physical assets, Proof of Control is done by proofing physical presence. By wrapping the `ANCHOR` in a token we can represent each ASSET 1:1 on-chain.
 
-To do this in a secure, inseperable manner, the `ORACLE` must issue an `ATTESTATION`, where the `ORACLE` testifies that s particular ASSET associated with an ANCHOR has been CONTROLLED when defining the receiving `to`-address for any token transfer. 
+To do this in a secure, inseperable manner, the `ORACLE` must issue an `ATTESTATION`, where the `ORACLE` testifies that s particular ASSET associated with an ANCHOR has been CONTROLLED when defining the receiving `to`-address for any token transfer.
 
 Via `transferAnchor(attestation)` transfers are permissionless, i.e. neither the sender (`from`) nor the receiver (`to`) need to sign. Transfer authorization is solely provided through the `ORACLE`'s `ATTESTATION`.
 
-Additionally a structure is proposed, how FLOATING (temporarily decoupling the token from the anchor, hence enabling "traiditional" ERC-721 transfers) may be implemented using the present standard.
+Additionally a structure is proposed, how FLOATING (temporarily decoupling the token from the anchor, hence enabling "traditional" ERC-721 transfers) may be implemented using the present standard.
 
 ## TODO
+
 - Wording
-  - `ATTESTATION` may be reserved: https://ethereum.org/en/developers/docs/consensus-mechanisms/pos/`ATTESTATION`s/ 
-
-
+  - `ATTESTATION` may be reserved: <https://ethereum.org/en/developers/docs/consensus-mechanisms/pos/>`ATTESTATION`s/
 
 ## Motivation
-The widely spread ERC-721 considered that NFTs can represent "ownership over physical properties [...] as well as digital collectables and even more abstract things such as responsibilities" - in a broader sense, we will refer to those as `ASSETS`. 
 
-The following proposed standard extends ERC-721 and elevates the concept of representing physical or digital off-chain `ASSETS` by strictly anchoring the `ASSET` inseperably into an NFT. This implies that a change in ownership over the `ASSET` inevitably must be reflected by a change in ownership over the anchored digital NFT. Moreover, being in control over the off-chain `ASSET` must mean being in control over the anchored NFT. 
+The widely spread ERC-721 considered that NFTs can represent "ownership over physical properties [...] as well as digital collectables and even more abstract things such as responsibilities" - in a broader sense, we will refer to those as `ASSETS`.
+
+The following proposed standard extends ERC-721 and elevates the concept of representing physical or digital off-chain `ASSETS` by strictly anchoring the `ASSET` inseperably into an NFT. This implies that a change in ownership over the `ASSET` inevitably must be reflected by a change in ownership over the anchored digital NFT. Moreover, being in control over the off-chain `ASSET` must mean being in control over the anchored NFT.
 
 Additionally or alternatively NFTs according to this proposed standard allow to anchor digital metadata inseperably to the `ASSET`. When the `ASSET` is a physical asset, this allows to design "phygitals" in their purest form, i.e. making a single phygital asset with a physical and digital component that are inseperable.
 
 The proposed standard primarily aims to onboard physical assets into dApps, which do not have digital processing capabilities. Especially such, which do not have signing-capabilities of their own (contrary to EIP-5791's approach using crypto-chip based solutions). Note that we do not see any restrictions on using the proposed standard for digital or abstract off-chain `ASSETS`.
 
-We propose in this standard to technically limit the number of transfers of a token according to ERC-721, while conceptually still enabling an unliminted number of transfers. Transfers are solely authorized through under the pre-condition of an `ORACLE` verifying that whoever specifies the `to` address has been simultanously been in control over the `ASSET`. Transfers shall not require signature or approval from neither the `from` nor `to` account, i.e. making transfers permissionless. Ideally, signing the transaction is independent from the `ORACLE` as well, allowing different scenarios in terms of gas-fees.
+We propose in this standard to complement the existing transfer control mechanisms of a token according to ERC-721, `Approval` according to EIP-721 and `Permit` according to EIP-4494, by another mechanism `ATTESTATION`. `ATTESTATION` is solely issued under the pre-condition of an `ORACLE` verifying that whoever specifies the `to` address has simultanously been in control over the `ASSET`.
 
-Thus - and this may be counter-intuitive - the anchored NFT can only be transfered through transfering the ASSET. This can be seen as an extreme decentralized/self-custody approach, as it extends to the ASSET, in particular for physical ASSETS even into the physical world. Phygitals implemented with the proposed standard can be traded physically in any traditionally known way, including trading against FIAT, gifting or just swapping for other physical goods (which do not necessarly need to be phygital).  
+Transfers with `ATTESTATION` shall not require signature or approval from neither the `from` nor `to` account, i.e. making transfers permissionless. Ideally, signing the transaction is independent from the `ORACLE` as well, allowing different scenarios in terms of gas-fees.
 
-Lastly, the proposed transfer-mechanism has two major side-benefits, which drastically lower hurdles for onboarding web2 users and increase their security; 
+Tokens according to ERC-721 that implement this standard are named `ANCHORs`.
+
+Driven by the use case, we propose further properties of the `ATTESTATION` in this standard:
+
+- A `AllowTransferMode` that is set immutably at contract creation time and allows to limit the authorization mechanisms allowed to transfer. (e.g. AllowTransferAttestation, AllowTransferAttestationBurn, AllowTransferAll)
+- A limit of `ATTESTATIONs` that can be issued per token, and an indication `AttestationMode` wether this limit is mutable. (e.g. LimitImmutable, LimitIncreaseOnly, LimitMutable)
+- A means to block transfer by `ATTESTATION` and through pre-approved operators under certain conditions and an immutable indication wether it's blockable.. (e.g. block all transfers until DeFi Loan is paid off.)
+
+Lastly, the proposed transfer-mechanism has two major side-benefits, which drastically lower hurdles for onboarding web2 users and increase their security;
+
 - New users can participate in dApps/DeFi without ever owning crypto currency (when gas fees are paid through a third-party account, typically the ASSET issuer)
 - Users cannot get scammed digitally, since common attacks (e.g. wallet-drainer scams) are no longer possible. Also mishaps like transferring the NFT to the wrong account, losing access to once account etc can easily be mitigated by initiating another transaction based on proofing control over the `ASSET`, i.e. the physical object.
-
 
 ## Specification
 
@@ -64,11 +73,11 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 - An `ANCHOR` uniquely identifies the off-chain ASSET, being it physical (Refer Specification for Phygitals) or digital.
 - An `ORACLE` has signing capabilities and one or more `ORACLES` are trusted by the Smart Contract.
 
-
 ### ORACLE
+
 - MUST provide an `ATTESTATION`. Below we define the format (the `ATTESTATION`), how the oracle testifies that the `to` address of a transfer has been specified under the pre-condition of `CONTROLLING THE ASSET` associated with the particular `ANCHOR` being transferred to `to`.
-- The `ATTESTATION` MUST contain 
-  - `to`, MUST be address 
+- The `ATTESTATION` MUST contain
+  - `to`, MUST be address
   - `anchor`, MUST be 1:1 mappable to the `ASSET`
   - `attestationTime`, (MUST be UTC seconds)
   - `expireTime`, (MUST be UTC seconds)
@@ -76,18 +85,19 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
   - `signature`, ETH-signature (65 bytes), Signature when a trusted oracle signed the `keccak256([to, anchor, attestationTime, expireTime, proof])`, typically abi-encoded.
 
 ### Smart contract
+
 - MUST implement ERC-721 interface
 - MUST ensure tokens only exist for valid `ANCHOR`.
 - MUST have an immutable `canFloat` boolean, indicating whether anchors can be released, i.e. whether tokens can be transferred without attestation, i.e. without proof of CONTROL OVER ASSET. RECOMMENDED to set canFloat via constructor at deploy time.
 - MUST define a `maxAttestationValidTime`, which is enforced in case an `ATTESTATION`'s `expireTime` is bigger.
 - MUST have bidirectional mapping `tokenPerAnchor[anchor]` and `anchorPerToken[token]`. This implies that a maximum of one token per `ANCHOR` exists.
-- MUST have `isReleasedAnchor[anchor]`, indicating which particular anchors are currently released, i.e. can be transfered or minted. 
+- MUST have `isReleasedAnchor[anchor]`, indicating which particular anchors are currently released, i.e. can be transfered or minted.
   - This MAY be used to implement a "temporary" decoupling of tokens, which is not subject to this standard but a reference implementation is available.
   - `transferAnchor()` ensures `isReleasedAnchor[anchor]` is temporarily set to true
 - MUST implement a mechanism `validAnchor(anchor, ...)` to ensure an ANCHOR passed through attestation is valid, i.e. is on the "list" of valid anchors. RECOMMENDED to implement this through Merkle-Trees, i.e. `validAnchor(anchor, proof)`.
 - MUST implement `validateAttestation(...)` modifier, which MUST throw when any of the below occurs:
   - `ATTESTATION` originates from a non-trusted `ORACLE`.
-  - `ATTESTATION` has expired, either when 
+  - `ATTESTATION` has expired, either when
     - WHEN `attestation.attestationTime + maxAttestationValidTime > block.timestamp`
     - OR when `block.timestamp > attestation.expireTime`
   - `ATTESTATION` has already been used. "Used" being defined in at least one transfer has been made using a particular `ATTESTATION`.
@@ -111,46 +121,47 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 - MAY implement an anchor-transfer-limit-mechanism. This is a MUST when transaction-costs are provided through a central account, e.g. through the ORACLE (or associated authorities) itself to avoid fund-draining. If implemented, this mechanism
   - MUST implement `transferLimit(anchor)`, specifying how often an `ANCHOR` can be transferred in total. The contract
-    - SHALL support different transfer limit update modes, namely FIXED, INCREASABLE, DECREASABLE, FLEXIBLE (= INCREASABLE and DECREASABLE) 
+    - SHALL support different transfer limit update modes, namely FIXED, INCREASABLE, DECREASABLE, FLEXIBLE (= INCREASABLE and DECREASABLE)
     - MUST immutably define one of the above listed modes expose it via `transferLimitUpdateMode()`
     - RECOMMENDED to have a global transfer limit, which can be overwritten on a token-basis (when `transferLimitUpdateMode() != FIXED`)
   - MUST implement `transfersLeft(anchor)`, returning the number of transfers left (i.e. `transferLimit(anchor)-transfersPerAnchor[anchor]`) for a particular anchor
-  - MAY be immutably configureable (at deploytime), wheter transfer limit is FIXED, INCREASABLE, DECREASABLE, FLEXIBLE (= INCREASABLE and DECREASABLE) 
+  - MAY be immutably configureable (at deploytime), wheter transfer limit is FIXED, INCREASABLE, DECREASABLE, FLEXIBLE (= INCREASABLE and DECREASABLE)
   - RECOMMENDED to have a global transfer limit, which can be overwritten on a token-basis (if not configured as FIXED)
   - The above mechanism MAY be used for DeFi application, lending etc to temporarily block transferAnchor(anchor), e.g. over a renting or lending period.
 
-
-
 ## Additional Specifications for PHYSICAL ASSETS
+
 In case the `ASSET` is a physical object, good or property, the following ADDITIONAL specifications apply:
 
 ### ORACLE
+
 - Issuing an `ATTESTATION` requires that the `ORACLE`
-  - MUST proof physical proximity between an input device (e.g. smartphone) specifying the `to` address and a particular physical `ANCHOR` and it's associated physical object. Typical acceptable proximity is ranges between some millimeters to several meters. 
-  - The physical presence MUST be verified beyond reasonable doubt, in particular the employed method 
-    - MUST be robust against duplication or reproduction attempts of the physical `ANCHOR`, 
+  - MUST proof physical proximity between an input device (e.g. smartphone) specifying the `to` address and a particular physical `ANCHOR` and it's associated physical object. Typical acceptable proximity is ranges between some millimeters to several meters.
+  - The physical presence MUST be verified beyond reasonable doubt, in particular the employed method
+    - MUST be robust against duplication or reproduction attempts of the physical `ANCHOR`,
     - MUST be robust against spoofing (e.g. presentation attacks) etc.
   - MUST be implemented under the assumption that the party defining the `to` address has malicious intent and to acquire false `ATTESTATION`, without currently or ever having access to the physical object comprising the physical `ANCHOR`.
 
-
 ### Physical Object
+
 - MUST comprise an `ANCHOR`, acting as the unique physical object identifier, typically a serial number (plain (NOT RECOMMENDED) or hashed (RECOMMENDED))
 - MUST comprise a physical security device, marking or any other feature that enables proofing physical presence for `ATTESTATION` through the `ORACLE`
 - Is RECOMMENDED to employ `ANCHOR` technologies featuring irreproducible security features.
 - In general it is NOT RECOMMENDED to employ `ANCHOR` technologies that can easily be replicated (e.g. barcodes, "ordinary" NFC chips, .. ). Replication includes physical and digital replication.
 
 ## Specification when using digital ASSETs
+
 TODO - if any input?
 
-
 ## Alternatives Considered
+
 - Soulbound burn+mint combi, e.g. through Consensual Soulbound Tokens (EIP-5484)
 - Addign a blockTransfer(tokenId) for DeFi -> Decided not to standardize as not core-functionality, can be built on top of this standard like for normal NFT-lending.
 
 TODO:
+
 - Instead of burn, maybe better to return tokens to this smart contract? otherwise, when a user burns, a new token is issued representing an anchor that was wrapped into a previous token before. Not an issue for most use-cases, but strictly speaking breaks historic "1:1" relation and makes tokenURI strictly necessary to tie to anchor.
-
-
+- -> Definitely do this, also eliminates complexity around the allowance wallet as stated in chat.
 
 ## Rationale
 
@@ -164,11 +175,12 @@ TODO:
 
 TODO not really started
 
-The ORACLE can be seen as an "authorized operator" in ERC-721 terms, with authorization being implicitely granted by receiving an NFT through use of the ORACLE *(CAVEAT to be clarified: If I use the oracle and specify to drop an NFT to a foreign account, this account certainly did not implicitely agree to the authorization)*
+The ORACLE can be seen as an "authorized operator" in ERC-721 terms, with authorization being implicitely granted by receiving an NFT through use of the ORACLE _(CAVEAT to be clarified: If I use the oracle and specify to drop an NFT to a foreign account, this account certainly did not implicitely agree to the authorization)_
 
 Why 1:1? For N:1 etc, use a contract to proxy or wrap this contract.
 
-Gas fees are paid through 
+Gas fees are paid through
+
 - ORACLE respectively associated centralized account (so not from the beneficiary)
 - or through arbitrary accounts, most commonly by either the `from` or `to` account I assume.
 
@@ -209,8 +221,7 @@ No backward compatibility issues found.
   TODO: Remove this comment before submitting
 -->
 
-Reference-Implementation WIP: https://git.avdev.at/dlt/physical-transferable-nft/-/tree/initial?ref_type=heads
-
+Reference-Implementation WIP: <https://git.avdev.at/dlt/physical-transferable-nft/-/tree/initial?ref_type=heads>
 
 ## Security Considerations
 
@@ -223,9 +234,9 @@ Reference-Implementation WIP: https://git.avdev.at/dlt/physical-transferable-nft
 -->
 
 Needs discussion.
-TODO 
-- Add merkle-tree leaves
+TODO
 
+- Add merkle-tree leaves
 
 ## Copyright
 
