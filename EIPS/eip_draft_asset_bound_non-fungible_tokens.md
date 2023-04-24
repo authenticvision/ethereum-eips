@@ -6,7 +6,7 @@ discussions-to: <URL>
 status: Draft
 type: Standards Track
 category: ERC
-created: 2023-04-20
+created: 2023-04-24
 requires: 721, 165
 ---
 
@@ -18,41 +18,32 @@ An asset, e.g. a physical object, is equipped with a `ANCHOR` technology. The `A
 
 To do this in a secure, inseperable manner, the `ORACLE` must issue an `ATTESTATION`, where the `ORACLE` testifies that s particular ASSET associated with an ANCHOR has been CONTROLLED when defining the receiving `to`-address for any token transfer.
 
-Via `transferAnchor(attestation)` transfers are permissionless, i.e. neither the sender (`from`) nor the receiver (`to`) need to sign. Transfer authorization is solely provided through the `ORACLE`'s `ATTESTATION`.
+`transferAnchor(attestation)` is permissionless, i.e. neither the sender (`from`) nor the receiver (`to`) need to sign. Transfer authorization is solely provided through the `ORACLE`'s `ATTESTATION`. Note depending on the use-case, the implementation of `ATTESTED-TRANSFER-LIMITS` is needed for security reasons.
 
-Additionally a structure is proposed, how FLOATING (temporarily decoupling the token from the anchor, hence enabling "traditional" ERC-721 transfers) may be implemented using the present standard.
+We also outline the FLOATING-concept (temporarily decoupling the token from the anchor, hence enabling "traditional" ERC-721 transfers without implementation) may be implemented using the present standard.
 
-## TODO
 
-- Wording
-  - `ATTESTATION` may be reserved: <https://ethereum.org/en/developers/docs/consensus-mechanisms/pos/>`ATTESTATION`s/
 
 ## Motivation
 
-The widely spread ERC-721 considered that NFTs can represent "ownership over physical properties [...] as well as digital collectables and even more abstract things such as responsibilities" - in a broader sense, we will refer to those as `ASSETS`.
+The well-known ERC-721 outlines that NFTs can represent "ownership over physical properties [...] as well as digital collectables and even more abstract things such as responsibilities" - in a broader sense, we will refer to all those things as `ASSETS`.
 
-The following proposed standard extends ERC-721 and elevates the concept of representing physical or digital off-chain `ASSETS` by strictly anchoring the `ASSET` inseperably into an NFT. This implies that a change in ownership over the `ASSET` inevitably must be reflected by a change in ownership over the anchored digital NFT. Moreover, being in control over the off-chain `ASSET` must mean being in control over the anchored NFT.
+The following proposed standard extends ERC-721 and elevates the concept of representing physical or digital `ASSETS` by strictly anchoring the `ASSET` inseperably into an NFT. Consequently, a change in ownership over the `ASSET` inevitably should be reflected by a change in ownership over the anchored NFT. Moreover, being in control over the `ASSET` must mean being in control over the anchored NFT.
 
-Additionally or alternatively NFTs according to this proposed standard allow to anchor digital metadata inseperably to the `ASSET`. When the `ASSET` is a physical asset, this allows to design "phygitals" in their purest form, i.e. making a single phygital asset with a physical and digital component that are inseperable.
+The proposed NFTs allow to anchor digital metadata inseperably to the `ASSET`. When the `ASSET` is a physical asset, this allows to design "phygitals" in their purest form, i.e. creating a "phygital" asset with a physical and digital component that are inseperable.
 
-The proposed standard primarily aims to onboard physical assets into dApps, which do not have digital processing capabilities. Especially such, which do not have signing-capabilities of their own (contrary to EIP-5791's approach using crypto-chip based solutions). Note that we do not see any restrictions on using the proposed standard for digital or abstract off-chain `ASSETS`.
+We primarily aim to onboard physical or digital assets into dApps, which do not signing-capabilities of their own (contrary to EIP-5791's approach using crypto-chip based solutions). Note that we do not see any restrictions on using the proposed standard also for `ASSETS` with signing capabilities.
 
-We propose in this standard to complement the existing transfer control mechanisms of a token according to ERC-721, `Approval` according to EIP-721 and `Permit` according to EIP-4494, by another mechanism `ATTESTATION`. `ATTESTATION` is solely issued under the pre-condition of an `ORACLE` verifying that whoever specifies the `to` address has simultanously been in control over the `ASSET`.
+We propose to complement the existing transfer control mechanisms of a token according to ERC-721, `Approval` according to EIP-721 and `Permit` according to EIP-4494, by another mechanism; `ATTESTATION`. An `ATTESTATION` is solely issued under the pre-condition of an `ORACLE` verifying that whoever specifies the `to` address or beneficiary address has simultanously been in control over the `ASSET`. The `to` address of an attestation may be used for Transfers as well as for approvals.
 
 Transfers with `ATTESTATION` shall not require signature or approval from neither the `from` nor `to` account, i.e. making transfers permissionless. Ideally, signing the transaction is independent from the `ORACLE` as well, allowing different scenarios in terms of gas-fees.
 
-Tokens according to ERC-721 that implement this standard are named `ANCHORs`.
+Tokens according to ERC-721 that implement this standard are named `ANCHORs`. Note `ANCHOR` can refer to the `bytes32` anchor itself, or the token representing it.
 
-Driven by the use case, we propose further properties of the `ATTESTATION` in this standard:
+Lastly we want to empathize two major side-benefits, which drastically lower hurdles for onboarding web2 users and increase their security;
 
-- A `AllowTransferMode` that is set immutably at contract creation time and allows to limit the authorization mechanisms allowed to transfer. (e.g. AllowTransferAttestation, AllowTransferAttestationBurn, AllowTransferAll)
-- A limit of `ATTESTATIONs` that can be issued per token, and an indication `AttestationMode` wether this limit is mutable. (e.g. LimitImmutable, LimitIncreaseOnly, LimitMutable)
-- A means to block transfer by `ATTESTATION` and through pre-approved operators under certain conditions and an immutable indication wether it's blockable.. (e.g. block all transfers until DeFi Loan is paid off.)
-
-Lastly, the proposed transfer-mechanism has two major side-benefits, which drastically lower hurdles for onboarding web2 users and increase their security;
-
-- New users can participate in dApps/DeFi without ever owning crypto currency (when gas fees are paid through a third-party account, typically the ASSET issuer)
-- Users cannot get scammed digitally, since common attacks (e.g. wallet-drainer scams) are no longer possible. Also mishaps like transferring the NFT to the wrong account, losing access to once account etc can easily be mitigated by initiating another transaction based on proofing control over the `ASSET`, i.e. the physical object.
+- New users can participate in dApps/DeFi without ever owning crypto currency (when gas-fees are paid through a third-party account, typically the ASSET issuer, who signs `transferAnchor()` transactions)
+- Users cannot get scammed. Common attacks (e.g. wallet-drainer scams) are no longer possible or easily reverted, since only the anchored NFT can be stolen, not the ASSET itself. Also mishaps like transferring the NFT to the wrong account, losing access to an account etc can be mitigated by executing another `transferAnchor()` transaction based on proofing control over the `ASSET`, i.e. the physical object.
 
 ## Specification
 
@@ -70,7 +61,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 - `ASSET` refers to the "thing", being it physical or digital, which is represented through NFTs according to the proposed standard. Typically, an ASSET does not have signing capabilities.
 - `CONTROLLING THE ASSET` ... TODO [_in physical proximity to the physical asset_]
-- An `ANCHOR` uniquely identifies the off-chain ASSET, being it physical (Refer Specification for Phygitals) or digital.
+- An `ANCHOR` uniquely identifies the ASSET, being it physical (Refer [Specification for Physical Assets](#additional-specifications-for-physical-assets)) or digital.
 - An `ORACLE` has signing capabilities and one or more `ORACLES` are trusted by the Smart Contract.
 
 ### ORACLE
@@ -79,8 +70,9 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 - The `ATTESTATION` MUST contain
   - `to`, MUST be address
   - `anchor`, MUST be 1:1 mappable to the `ASSET`
-  - `attestationTime`, (MUST be UTC seconds)
-  - `expireTime`, (MUST be UTC seconds)
+  - `attestationTime`, Time of attestation (MUST be UTC seconds),
+  - `validStartTime`, Blocktime must be greater than this value (MUST be UTC seconds)
+  - `validEndTime`, Blocktime must be smaller than this value(MUST be UTC seconds)
   - `proof`, Carrier for proof-Mechanism for checking whether an anchor is valid. Typically Merkle-Proof
   - `signature`, ETH-signature (65 bytes), Signature when a trusted oracle signed the `keccak256([to, anchor, attestationTime, expireTime, proof])`, typically abi-encoded.
 
@@ -119,7 +111,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 - RECOMMENDED to implement any or multiple of the following interfaces: transferable(tokenId), isSoulbound(tokenId), isNonTransferable (), `isNonTransferable(tokenId)` according to IERC6454.
 - RECOMMENDED to have a `tokenURI(tokenId)` implemented to return an anchorBased-URI, i.e. `baseURI/anchor`. (= Anchoring metadata to anchored ASSET). So even if there are different tokens in time, which represent the same anchor, the same tokenURI needs to be returned for all those tokens (granted baseURI etc does not change).  
 
-- MAY implement an anchor-transfer-limit-mechanism. This is a MUST when transaction-costs are provided through a central account, e.g. through the ORACLE (or associated authorities) itself to avoid fund-draining. If implemented, this mechanism
+- MAY implement the `IERCxxxxAttestedTransferLimit` interface. This is a MUST when transaction-costs are provided through a central account, e.g. through the ORACLE (or associated authorities) itself to avoid fund-draining. If implemented, this mechanism
   - MUST implement `transferLimit(anchor)`, specifying how often an `ANCHOR` can be transferred in total. The contract
     - SHALL support different transfer limit update modes, namely FIXED, INCREASABLE, DECREASABLE, FLEXIBLE (= INCREASABLE and DECREASABLE)
     - MUST immutably define one of the above listed modes expose it via `transferLimitUpdateMode()`
@@ -175,14 +167,21 @@ TODO:
 
 TODO not really started
 
-The ORACLE can be seen as an "authorized operator" in ERC-721 terms, with authorization being implicitely granted by receiving an NFT through use of the ORACLE _(CAVEAT to be clarified: If I use the oracle and specify to drop an NFT to a foreign account, this account certainly did not implicitely agree to the authorization)_
+
+TODO make a point that NFTs today are often seen as asset and that decoupling the asset from the NFT has the benefit, of the token can being stolen, but this does not mean the asset is stolen. 
 
 Why 1:1? For N:1 etc, use a contract to proxy or wrap this contract.
 
 Gas fees are paid through
-
 - ORACLE respectively associated centralized account (so not from the beneficiary)
 - or through arbitrary accounts, most commonly by either the `from` or `to` account I assume.
+
+### Supported use-cases
+- A means to block transfer by `ATTESTATION` and through pre-approved operators under certain conditions and an immutable indication wether it's blockable.. (e.g. block all transfers until DeFi Loan is paid off.)
+
+- A `AllowTransferMode` that is set immutably at contract creation time and allows to limit the authorization mechanisms allowed to transfer. (e.g. AllowTransferAttestation, AllowTransferAttestationBurn, AllowTransferAll)
+- A limit of `ATTESTATIONs` that can be issued per token, and an indication `AttestationMode` wether this limit is mutable. (e.g. LimitImmutable, LimitIncreaseOnly, LimitMutable)
+
 
 ## Backwards Compatibility
 
