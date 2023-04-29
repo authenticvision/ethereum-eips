@@ -373,22 +373,12 @@ interface IERCxxxxFloatable is IERCxxxx {
 
 ERC-XXXX Lockable is a mechanism that enables third party smart contracts to lock transfer of `ASSET` besides having a valid `ATTESTATION`. This enables, amongst other things, the use of `ASSET` as on-chain collateral, and can be used for protection against theft through `ATTESTATION`.
 
-ERC-XXXX Lockable has a hard `LOCK` that prevents transfers, and a `LIEN` mechanism. While `LOCK` prevents transfer, `LIEN` indicates that `ASSET` is burdened with a third party liability (i.e. a lease contract).
+ERC-XXXX Lockable has a hard `LOCK` that prevents transfers, and a `LIEN` mechanism. While `LOCK` prevents transfer, `LIEN` indicates that `ASSET` is burdened with a third party liability (i.e. a lease contract). To `LOCK` or `LIEN` a token, the locking address needs to be an approved owner or operator of `tokenId`.
 
 Every ERC-XXXX compliant contract MAY implement the [IERCxxxxLockable](../assets/eip-draft_asset-bound_non-fungible_token/contracts/IERCxxxxLockable.sol) and MUST implement ERC721 and ERC165 interfaces (subject to “caveats” below):
 
 ```Solidity
 interface IERCxxxxLockable is IERCxxxx {
-
-    function addLockingAccount(address lockingAddress, bool canLock, bool canLien) external;
-    function changeLockingAccount(address lockingAddress, bool canLock, bool canLien) external;
-    function removeLockingAccount(address lockingAddress) external;
-
-    function accountLocksLength(address lockingAddress) external view returns (uint);
-    function getAccountLocks(address lockingAddress, uint) external view returns (uint256 tokenId);
-    
-    function accountLiensLength(address lockingAddress) external view returns (uint);
-    function getAccountLiens(address lockingAddress, uint) external view returns (uint256 tokenId);
     
     function addLock(uint256 tokenId) external;
     function removeLock(uint256 tokenId,) external;
