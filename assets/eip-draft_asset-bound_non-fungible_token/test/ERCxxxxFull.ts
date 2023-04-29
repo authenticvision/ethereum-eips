@@ -289,7 +289,7 @@ describe("Attested Transfer Limits", function () {
   it("Should enforce anchor limits (global + local)", async function () {
     const globalLimit = 2;
     const specificAnchorLimit = 1;
-    const { metaAnchor, maintainer, oracle, merkleTree, alice, bob, gasProvider, mallory,carl, hacker} = await deployForAttestationLimit(globalLimit, AttestedTransferLimitUpdatePolicy.FLEXIBLE);
+    const { metaAnchor, maintainer, oracle, merkleTree, alice, bob, gasProvider, mallory, carl, hacker} = await deployForAttestationLimit(globalLimit, AttestedTransferLimitUpdatePolicy.FLEXIBLE);
     const anchor = merkleTestAnchors[0][0]; // can be transferred twice
     const limitedAnchor = merkleTestAnchors[1][0]; // can be transferred once
 
@@ -329,5 +329,68 @@ describe("Attested Transfer Limits", function () {
     .to.revertedWith("ERC-XXXX: No attested transfers left");
   });
 });
-  
+
+describe("Anchor-Locking", function () {
+
+  it("SHOULD only allow OWNER and approved to lock and remove lock.", async function () {
+    const { metaAnchor, anchor, alice, bob, mallory } = await loadFixture(deployABTandMintTokenToAlice);
+    const tokenId = await metaAnchor.tokenByAnchor(anchor);
+
+    await metaAnchor.connect(alice).addLock(tokenId);
+    expect (await metaAnchor.tokenIsLocked(tokenId)).to.equal(true);
+
+    await metaAnchor.connect(alice).approve(bob.address, tokenId);
+
+    await metaAnchor.connect(bob).addLock(tokenId);
+    expect (await metaAnchor.tokenIsLocked(tokenId)).to.equal(true);
+    expect (await metaAnchor.lockCount(tokenId)).to.equal(2);
+
+    await metaAnchor.connect(bob).removeLock(tokenId);
+    await metaAnchor.connect(alice).removeLock(tokenId);
+
+    expect (await metaAnchor.lockCount(tokenId)).to.equal(0);
+    expect (await metaAnchor.tokenIsLocked(tokenId)).to.equal(false);
+
+    await expect(metaAnchor.connect(mallory).addLock(tokenId))
+    .to.revertedWith("ERCxxxxLockable: Caller is not owner nor approved to operate the token");
+  });
+
+  it("SHOULD only allow OWNER and approved to put a lien and remove the lien.", async function () {
+    const { metaAnchor, anchor, alice, bob, mallory } = await loadFixture(deployABTandMintTokenToAlice);
+    const tokenId = await metaAnchor.tokenByAnchor(anchor);
+
+    await metaAnchor.connect(alice).addLien(tokenId);
+    expect (await metaAnchor.tokenHasLien(tokenId)).to.equal(true);
+    
+    await metaAnchor.connect(alice).approve(bob.address, tokenId);
+
+    await metaAnchor.connect(bob).addLien(tokenId);
+    expect (await metaAnchor.tokenHasLien(tokenId)).to.equal(true);
+    expect (await metaAnchor.lienCount(tokenId)).to.equal(2);
+
+    await metaAnchor.connect(bob).removeLien(tokenId);
+    await metaAnchor.connect(alice).removeLien(tokenId);
+
+    expect (await metaAnchor.lienCount(tokenId)).to.equal(0);
+    expect (await metaAnchor.tokenHasLien(tokenId)).to.equal(false);
+
+    await expect(metaAnchor.connect(mallory).addLien(tokenId))
+    .to.revertedWith("ERCxxxxLockable: Caller is not owner nor approved to operate the token");
+  });
+
+  it("SHOULD block transfer by attestation when locked", async function () {
+    const { metaAnchor, merkleTree, oracle, anchor, alice, mallory, gasProvider} = await loadFixture(deployABTandMintTokenToAlice);
+    const tokenId = await metaAnchor.tokenByAnchor(anchor);
+
+    await metaAnchor.connect(alice).addLock(tokenId);
+    expect (await metaAnchor.tokenIsLocked(tokenId)).to.equal(true);
+
+    const mintAttestationBob = await createAttestation(mallory.address, anchor, oracle, merkleTree);
+
+    await expect(metaAnchor.connect(gasProvider).transferAnchor(mintAttestationBob))
+    .to.revertedWith("ERC-XXXX: Anchor is locked, attestation can't transfer.");
+  });
+
+});
+
 });

@@ -13,11 +13,74 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "./ERCxxxx.sol";
 import "./IERCxxxxAttestationLimited.sol";
 import "./IERCxxxxFloatable.sol";
+import "./IERCxxxxLockable.sol";
 
-contract ERCxxxxFull is ERCxxxx, IERCxxxxAttestationLimited, IERCxxxxFloatable {
+contract ERCxxxxFull is ERCxxxx, IERCxxxxAttestationLimited, IERCxxxxFloatable, IERCxxxxLockable {
 
     uint8 canStartFloatingMap;
     uint8 canStopFloatingMap;
+
+    /// ###############################################################################################################################
+    /// ##############################################################################################  IERCxxxxLockable
+    /// ###############################################################################################################################
+    mapping (uint256 => uint256) public lockCount;
+    mapping (uint256 => uint256) public lienCount;
+    mapping (uint256 => mapping (address => bool)) public tokenLocks;
+    mapping (uint256 => mapping (address => bool)) public tokenLiens;
+    
+    function addLock(uint256 tokenId) public {
+        require(!tokenLocks[tokenId][msg.sender], "ERCxxxxLockable: caller has already added a lock for this token");
+        require(_isApprovedOrOwner(msg.sender, tokenId), "ERCxxxxLockable: Caller is not owner nor approved to operate the token");
+
+        tokenLocks[tokenId][msg.sender] = true;
+        lockCount[tokenId]++;
+
+        emit AnchorLockAdded(anchorByToken[tokenId], msg.sender, lockCount[tokenId]);
+    }
+    
+    function removeLock(uint256 tokenId) public {
+        require(tokenLocks[tokenId][msg.sender], "ERCxxxxLockable: caller has not added a lock for this token");
+
+        tokenLocks[tokenId][msg.sender] = false;
+        lockCount[tokenId]--;
+
+        emit AnchorLockRemoved(anchorByToken[tokenId], msg.sender, lockCount[tokenId]);
+    }
+
+    function addLien(uint256 tokenId) public {
+        require(!tokenLiens[tokenId][msg.sender], "ERCxxxxLockable: caller has already added a lock for this token");
+        require(_isApprovedOrOwner(msg.sender, tokenId), "ERCxxxxLockable: Caller is not owner nor approved to operate the token");
+
+        tokenLiens[tokenId][msg.sender] = true;
+        lienCount[tokenId]++;
+
+        emit AnchorLienAdded(anchorByToken[tokenId], msg.sender, lienCount[tokenId]);
+    }
+
+    function removeLien(uint256 tokenId) public {
+        require(tokenLiens[tokenId][msg.sender], "ERCxxxxLockable: caller has not added a lien for this token");
+
+        tokenLiens[tokenId][msg.sender] = false;
+        lienCount[tokenId]--;
+
+        emit AnchorLienRemoved(anchorByToken[tokenId], msg.sender, lienCount[tokenId]);
+    }
+
+    function anchorIsLocked(bytes32 anchor) public view returns (bool) {
+        return lockCount[tokenByAnchor[anchor]] > 0;
+    }
+
+    function anchorHasLien(bytes32 anchor) public view returns (bool) {
+        return lienCount[tokenByAnchor[anchor]] > 0;
+    }
+
+    function tokenIsLocked(uint256 tokenId) public view returns (bool) {
+        return lockCount[tokenId] > 0;
+    }
+
+    function tokenHasLien(uint256 tokenId) public view returns (bool) {
+        return lienCount[tokenId] > 0;
+    }
 
     /// ###############################################################################################################################
     /// ##############################################################################################  IERCxxxxAttestedTransferLimited
@@ -113,6 +176,10 @@ contract ERCxxxxFull is ERCxxxx, IERCxxxxAttestationLimited, IERCxxxxFloatable {
     function _beforeAttestationIsUsed(bytes32 anchor, address to) internal view virtual override(ERCxxxx) {
         // empty, can be overwritten by derived conctracts.
         require(attestatedTransfersLeft(anchor) > 0, "ERC-XXXX: No attested transfers left");
+
+        // Locks prevent use of attestation. Liens dont.
+        require(!anchorIsLocked(anchor), "ERC-XXXX: Anchor is locked, attestation can't transfer.");
+
         super._beforeAttestationIsUsed(anchor, to);
     }
 
