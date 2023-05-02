@@ -374,14 +374,20 @@ contract ERC6956 is
     function updateBaseURI(string calldata tokenBaseURI) public onlyMaintainer() {
         baseURI = tokenBaseURI;
     }
+    event BurnAuthorizationChange(ERC6956Authorization burnAuth, address indexed maintainer);
 
     function updateBurnAuthorization(ERC6956Authorization _burnAuth) public onlyMaintainer() {
         burnAuthorizationMap = createAuthorizationMap(_burnAuth);
+        emit BurnAuthorizationChange(_burnAuth, msg.sender);
         // TODO event
     }
- 
+    
+    event ApproveAuthorizationChange(ERC6956Authorization approveAuth, address indexed maintainer);
+
     function updateApproveAuthorization(ERC6956Authorization _approveAuth) public onlyMaintainer() {
         approveAuthorizationMap = createAuthorizationMap(_approveAuth);
+        emit ApproveAuthorizationChange(_approveAuth, msg.sender);
+
         // TODO event
     }
 
