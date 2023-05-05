@@ -305,6 +305,16 @@ contract ERC6956 is
             interfaceId == type(IERC6956).interfaceId ||
             super.supportsInterface(interfaceId);
     }
+
+    /**
+     * @notice Returns whether a certain address is registered as trusted oracle, i.e. attestations signed by this address are accepted in `decodeAttestationIfValid`
+     * @dev This function may be overwritten when extending ERC-6956, e.g. when other oracle-registration mechanics are used
+     * @param oracleAddress Address of the oracle in question
+     * @return isTrusted True, if oracle is trusted
+     */
+    function isTrustedOracle(address oracleAddress) public virtual view returns (bool isTrusted) {
+        return trustedOracles[oracleAddress];
+    }
     
 
     function decodeAttestationIfValid(bytes memory attestation) public view returns (address to, bytes32 anchor, bytes32 attestationHash) {
@@ -321,7 +331,7 @@ contract ERC6956 is
         address signer = _extractSigner(messageHash, signature);
 
         // Check if from trusted oracle
-        require(trustedOracles[signer], "EIP-6956 Attestation not signed by trusted oracle");
+        require(isTrustedOracle(signer), "EIP-6956 Attestation not signed by trusted oracle");
         require(anchorByUsedAttestation[attestationHash] <= 0, "EIP-6956 Attestation already used");
 
         // Check expiry
