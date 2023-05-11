@@ -15,14 +15,14 @@ import "./IERC6956Floatable.sol";
 
 contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable {
 
-    uint8 canStartFloatingMap;
-    uint8 canStopFloatingMap;
+    uint8 private _canStartFloatingMap;
+    uint8 private _canStopFloatingMap;
 
     /// ###############################################################################################################################
     /// ##############################################################################################  IERC6956AttestedTransferLimited
     /// ###############################################################################################################################
     
-    mapping(bytes32 => uint256) attestedTransferLimitByAnchor;
+    mapping(bytes32 => uint256) public attestedTransferLimitByAnchor;
     
     uint256 public globalAttestedTransferLimitByAnchor;
     AttestationLimitUpdatePolicy public transferLimitPolicy;
@@ -32,7 +32,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable {
     bool public allFloating;
     bool public floatingByDefault;
 
-    function requireValidLimitUpdate(uint256 oldValue, uint256 newValue) internal view {
+    function _requireValidLimitUpdate(uint256 oldValue, uint256 newValue) internal view {
         if(newValue > oldValue) {
             require(transferLimitPolicy == AttestationLimitUpdatePolicy.FLEXIBLE || transferLimitPolicy == AttestationLimitUpdatePolicy.INCREASE_ONLY, "EIP-6956: Updating attestedTransferLimit violates policy");
         } else {
@@ -54,7 +54,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable {
         public 
         onlyMaintainer() 
     {
-       requireValidLimitUpdate(globalAttestedTransferLimitByAnchor, _nrTransfers);
+       _requireValidLimitUpdate(globalAttestedTransferLimitByAnchor, _nrTransfers);
        globalAttestedTransferLimitByAnchor = _nrTransfers;
        emit GlobalAttestationLimitUpdate(_nrTransfers, msg.sender);
     }
@@ -64,7 +64,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable {
         onlyMaintainer() 
     {
        uint256 currentLimit = attestedTransferLimit(anchor);
-       requireValidLimitUpdate(currentLimit, _nrTransfers);
+       _requireValidLimitUpdate(currentLimit, _nrTransfers);
        attestedTransferLimitByAnchor[anchor] = _nrTransfers;
        emit AttestationLimitUpdate(anchor, tokenByAnchor[anchor], _nrTransfers, msg.sender);
     }
@@ -87,13 +87,13 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable {
     /// ###############################################################################################################################
     function canStartFloating(ERC6956Authorization op) public
         onlyMaintainer() {
-        canStartFloatingMap = createAuthorizationMap(op);
+        _canStartFloatingMap = createAuthorizationMap(op);
         emit CanStartFloating(op, msg.sender);
     }
         
     function canStopFloating(ERC6956Authorization op) public
         onlyMaintainer() {
-        canStopFloatingMap = createAuthorizationMap(op);
+        _canStopFloatingMap = createAuthorizationMap(op);
         emit CanStopFloating(op, msg.sender);
     } 
 
@@ -106,9 +106,9 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable {
      public 
      {        
         if(_doFloat) {
-            require(roleBasedAuthorization(anchor, canStartFloatingMap), "ERC-6956: No permission to start floating");
+            require(_roleBasedAuthorization(anchor, _canStartFloatingMap), "ERC-6956: No permission to start floating");
         } else {
-            require(roleBasedAuthorization(anchor, canStopFloatingMap), "ERC-6956: No permission to stop floating");
+            require(_roleBasedAuthorization(anchor, _canStopFloatingMap), "ERC-6956: No permission to stop floating");
         }
 
         require(_doFloat != isFloating(anchor), "EIP-6956: allowFloating can only be called when changing floating state");

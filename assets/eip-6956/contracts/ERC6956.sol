@@ -34,14 +34,14 @@ contract ERC6956 is
     /// @notice Resolves Anchor to tokenID. Inverse of anchorByToken
     mapping(bytes32 => uint256) public tokenByAnchor;
 
-    mapping(address => bool) private trustedOracles;
+    mapping(address => bool) private _trustedOracles;
 
     /// @dev stores the anchors for each attestation
     // TODO the anchor is not really used.. can we save on gas if we store just an uint8?
-    mapping(bytes32 => bytes32) private anchorByUsedAttestation;
+    mapping(bytes32 => bytes32) private _anchorByUsedAttestation;
 
     /// @dev stores handed-back tokens (via burn)
-    mapping (bytes32 => uint256) private burnedTokensByAnchor;
+    mapping (bytes32 => uint256) private _burnedTokensByAnchor;
 
 
      /**
@@ -51,15 +51,94 @@ contract ERC6956 is
 
 
     /// @dev The merkle-tree root node, where proof is validated against. Update via updateValidAnchors(). Use salt-leafs in merkle-trees!
-    bytes32 private validAnchorsMerkleRoot;
+    bytes32 private _validAnchorsMerkleRoot;
 
     /// @dev Default validity timespan of attestation. In validateAttestation the attestationTime is checked for MIN(defaultAttestationvalidity, attestation.expiry)
-    uint256 maxAttestationExpireTime = 5*60; // 5min valid per default
+    uint256 public maxAttestationExpireTime = 5*60; // 5min valid per default
 
-    uint8 burnAuthorizationMap;
-    uint8 approveAuthorizationMap;
+    uint8 private _burnAuthorizationMap;
+    uint8 private _approveAuthorizationMap;
 
+/// @dev Records the number of transfers done for each attestation
+    mapping(bytes32 => uint256) public attestationsUsedByAnchor;
 
+    modifier onlyMaintainer() {
+        require(isMaintainer(msg.sender), "ERC6956: Only maintainer allowed");
+        _;
+    }
+
+    /**
+     * @notice Behaves like ERC721 burn() for wallet-cleaning purposes. Note only the tokenId (as a wrapper) is burned, not the ASSET represented by the ANCHOR.
+     * @dev 
+     * - tokenId is remembered for the anchor, to ensure a later transferAnchor(), which would mint, assigns the same tokenId. This ensures strict 1:1 relation
+     * - For burning, the anchor needs to be released. This forced release FOR BURNING ONLY is allowed for owner() or approvedOwner().
+     * 
+     * @param tokenId The token that shall be burned
+     */
+    function burn(uint256 tokenId) public override
+     {
+        // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
+        bytes32 anchor = anchorByToken[tokenId];
+        require(_roleBasedAuthorization(anchor, _burnAuthorizationMap), "ERC-6956: No permission to burn");
+
+        anchorIsReleased[anchor] = true; // burning means the anchor is certainly released
+        _burnedTokensByAnchor[anchor] = tokenId;  
+
+        super._burn(tokenId);
+        
+        delete anchorByToken[tokenId];
+        delete tokenByAnchor[anchor];
+    }
+
+    function burnAnchor(bytes memory attestation) public
+        authorized(ERC6956Role.ASSET, _burnAuthorizationMap)
+     {
+        address to;
+        bytes32 anchor;
+        bytes32 attestationHash;
+        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation);
+        uint256 tokenId = tokenByAnchor[anchor];
+        require(tokenId>0, "ERC-6956 Token does not exist, call transferAnchor first to mint");
+        // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
+        _burnedTokensByAnchor[anchor] = tokenId;  
+        anchorIsReleased[anchor] = true; // burning means the anchor is certainly released
+        super._burn(tokenId);        
+        _commitAttestation(to, anchor, attestationHash);
+        delete anchorByToken[tokenId];
+        delete tokenByAnchor[anchor];
+    }
+
+     function approveAnchor(bytes memory attestation) public 
+        authorized(ERC6956Role.ASSET, _approveAuthorizationMap)
+    {
+        address to;
+        bytes32 anchor;
+        bytes32 attestationHash;
+        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation);
+        require(tokenByAnchor[anchor]>0, "ERC-6956 Token does not exist, call transferAnchor first to mint");
+        super._approve(to, tokenByAnchor[anchor]);
+        _commitAttestation(to, anchor, attestationHash);
+    }
+    
+    function updateOracle(address _oracle, bool _trust) public
+        onlyMaintainer() 
+    {
+        _trustedOracles[_oracle] = _trust;
+        emit OracleUpdate(_oracle, _trust);
+    }
+
+    /**
+     * @dev A very simple function wich MUST return false, when `a` is not a maintainer
+     *      When derived contracts extend ERC6956 contract, this function may be overridden
+     *      e.g. by using AccessControl, onlyOwner or other common mechanisms
+     * 
+     *      Having this simple mechanism in the reference implementation ensures that the reference
+     *      implementation is fully ERC-6956 compatible 
+     */
+    function isMaintainer(address a) public virtual view returns (bool) {
+        return maintainers[a];
+    } 
+      
 
     function createAuthorizationMap(ERC6956Authorization _auth) public pure returns (uint8)  {
        uint8 authMap = 0;
@@ -86,16 +165,8 @@ contract ERC6956 is
 
        return authMap;
     }
-    
 
-    function _afterTokenTransfer(address from, address to, uint256 firstTokenId, uint256 /*batchSize*/) internal virtual override(ERC721) {
-        emit AnchorTransfer(from, to, anchorByToken[firstTokenId], firstTokenId);
-    }
-
-    /// @dev Records the number of transfers done for each attestation
-    mapping(bytes32 => uint256) public attestationsUsedByAnchor;
-
-    function roleBasedAuthorization(bytes32 anchor, uint8 authorizationMap) internal view returns (bool) {
+    function _roleBasedAuthorization(bytes32 anchor, uint8 authorizationMap) internal view returns (bool) {
         uint256 tokenId = tokenByAnchor[anchor];        
         ERC6956Role myRole = ERC6956Role.INVALID;
         ERC6956Role alternateRole = ERC6956Role.INVALID;
@@ -111,87 +182,10 @@ contract ERC6956 is
         return hasAuthorization(myRole, authorizationMap) 
                     || hasAuthorization(alternateRole, authorizationMap);
     }
-
-    /**
-     * @dev A very simple function wich MUST return false, when `a` is not a maintainer
-     *      When derived contracts extend ERC6956 contract, this function may be overridden
-     *      e.g. by using AccessControl, onlyOwner or other common mechanisms
-     * 
-     *      Having this simple mechanism in the reference implementation ensures that the reference
-     *      implementation is fully ERC-6956 compatible 
-     */
-    function isMaintainer(address a) public virtual view returns (bool) {
-        return maintainers[a];
-    }
-
-    modifier onlyMaintainer() {
-        require(isMaintainer(msg.sender), "ERC6956: Only maintainer allowed");
-        _;
-    }
-
-
-    /**
-     * @notice Behaves like ERC721 burn() for wallet-cleaning purposes. Note only the tokenId (as a wrapper) is burned, not the ASSET represented by the ANCHOR.
-     * @dev 
-     * - tokenId is remembered for the anchor, to ensure a later transferAnchor(), which would mint, assigns the same tokenId. This ensures strict 1:1 relation
-     * - For burning, the anchor needs to be released. This forced release FOR BURNING ONLY is allowed for owner() or approvedOwner().
-     * 
-     * @param tokenId The token that shall be burned
-     */
-    function burn(uint256 tokenId) public override
-     {
-        // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
-        bytes32 anchor = anchorByToken[tokenId];
-        require(roleBasedAuthorization(anchor, burnAuthorizationMap), "ERC-6956: No permission to burn");
-
-        anchorIsReleased[anchor] = true; // burning means the anchor is certainly released
-        burnedTokensByAnchor[anchor] = tokenId;  
-
-        super._burn(tokenId);
-        
-        delete anchorByToken[tokenId];
-        delete tokenByAnchor[anchor];
-    }
-
-    function burnAnchor(bytes memory attestation) public
-        authorized(ERC6956Role.ASSET, burnAuthorizationMap)
-     {
-        address to;
-        bytes32 anchor;
-        bytes32 attestationHash;
-        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation);
-        uint256 tokenId = tokenByAnchor[anchor];
-        require(tokenId>0, "ERC-6956 Token does not exist, call transferAnchor first to mint");
-        // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
-        burnedTokensByAnchor[anchor] = tokenId;  
-        anchorIsReleased[anchor] = true; // burning means the anchor is certainly released
-        super._burn(tokenId);        
-        commitAttestation(to, anchor, attestationHash);
-        delete anchorByToken[tokenId];
-        delete tokenByAnchor[anchor];
-    }
-
+   
     ///@dev Hook executed before decodeAttestationIfValid returns. Override in derived contracts
     function _beforeAttestationIsUsed(bytes32 anchor, address to) internal view virtual {}
     
-    function approveAnchor(bytes memory attestation) public 
-        authorized(ERC6956Role.ASSET, approveAuthorizationMap)
-    {
-        address to;
-        bytes32 anchor;
-        bytes32 attestationHash;
-        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation);
-        require(tokenByAnchor[anchor]>0, "ERC-6956 Token does not exist, call transferAnchor first to mint");
-        super._approve(to, tokenByAnchor[anchor]);
-        commitAttestation(to, anchor, attestationHash);
-    }
-    
-    function updateOracle(address _oracle, bool _trust) public
-        onlyMaintainer() 
-    {
-        trustedOracles[_oracle] = _trust;
-        emit OracleUpdate(_oracle, _trust);
-    }
 
     function _beforeTokenTransfer(address /*from*/, address /*to*/, uint256 tokenId, uint256 batchSize)
         internal view
@@ -223,7 +217,7 @@ contract ERC6956 is
     /// @param anchor The anchor (from Merkle tree)
     function _safeMint(address to, bytes32 anchor) internal {
         assert(tokenByAnchor[anchor] <= 0); // saftey for contract-internal errors
-        uint256 tokenId = burnedTokensByAnchor[anchor];
+        uint256 tokenId = _burnedTokensByAnchor[anchor];
 
         if(tokenId < 1) {
             _tokenIdCounter.increment();
@@ -241,8 +235,8 @@ contract ERC6956 is
         _afterAnchorMint(to, anchor, tokenId);
     }
 
-    function commitAttestation(address to, bytes32 anchor, bytes32 attestationHash) internal {
-        anchorByUsedAttestation[attestationHash] = anchor;
+    function _commitAttestation(address to, bytes32 anchor, bytes32 attestationHash) internal {
+        _anchorByUsedAttestation[attestationHash] = anchor;
         uint256 totalAttestationsByAnchor = attestationsUsedByAnchor[anchor] +1;
         attestationsUsedByAnchor[anchor] = totalAttestationsByAnchor;
         emit AttestationUse(to, anchor, attestationHash, totalAttestationsByAnchor );
@@ -270,7 +264,7 @@ contract ERC6956 is
             _safeMint(to, anchor);
         }
         // You need to read it from memory, since it may have changed! 
-        commitAttestation(to, anchor, attestationHash);
+        _commitAttestation(to, anchor, attestationHash);
 
         return (anchor, to, tokenId);
     }
@@ -279,7 +273,7 @@ contract ERC6956 is
     /// @dev Proof (safeMint, dropAnchor) needs to provided from this tree. The merkle-tree needs to contain at least one "salt leaf" in order to not publish the complete merkle-tree when all anchors should have been dropped at least once. 
     /// @param _validAnchors The root, containing all anchors we want validated.
     function updateValidAnchors(bytes32 _validAnchors) public onlyMaintainer() {
-        validAnchorsMerkleRoot = _validAnchors;
+        _validAnchorsMerkleRoot = _validAnchors;
         emit ValidAnchorsUpdate(_validAnchors, msg.sender);
     }
 
@@ -313,7 +307,7 @@ contract ERC6956 is
      * @return isTrusted True, if oracle is trusted
      */
     function isTrustedOracle(address oracleAddress) public virtual view returns (bool isTrusted) {
-        return trustedOracles[oracleAddress];
+        return _trustedOracles[oracleAddress];
     }
     
 
@@ -332,7 +326,7 @@ contract ERC6956 is
 
         // Check if from trusted oracle
         require(isTrustedOracle(signer), "EIP-6956 Attestation not signed by trusted oracle");
-        require(anchorByUsedAttestation[attestationHash] <= 0, "EIP-6956 Attestation already used");
+        require(_anchorByUsedAttestation[attestationHash] <= 0, "EIP-6956 Attestation already used");
 
         // Check expiry
         uint256 timestamp = block.timestamp;
@@ -350,8 +344,12 @@ contract ERC6956 is
     function validAnchor(bytes32 anchor, bytes32[] memory proof) public view returns (bool) {
         return MerkleProof.verify(
             proof,
-            validAnchorsMerkleRoot,
+            _validAnchorsMerkleRoot,
             keccak256(bytes.concat(keccak256(abi.encode(anchor)))));
+    }
+
+    function _afterTokenTransfer(address from, address to, uint256 firstTokenId, uint256 /*batchSize*/) internal virtual override(ERC721) {
+        emit AnchorTransfer(from, to, anchorByToken[firstTokenId], firstTokenId);
     }
 
     function assertAttestation(bytes memory attestation) 
@@ -369,25 +367,29 @@ contract ERC6956 is
     /// @return tokenURI Returns the Uniform Resource Identifier (URI) for `tokenId` token.
     function tokenURI(uint256 tokenId) public view override returns (string memory) {        
         bytes32 anchor = anchorByToken[tokenId];
-        string memory anchorString = toHex(anchor);
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, anchorString)) : "";
+        string memory anchorString = _toHex(anchor);
+        return bytes(_baseURI()).length > 0 ? string(abi.encodePacked(_baseURI(), anchorString)) : "";
+    }
+
+    function _baseURI() internal view virtual override(ERC721) returns (string memory) {
+        return _baseUri;
     }
 
     /**
     * @dev Base URI, MUST end with a slash. Will be used as `{baseURI}{tokenId}` in tokenURI() function
     */
-    string internal baseURI = ""; // needs to end with '/'
+    string internal _baseUri = ""; // needs to end with '/'
 
     /// @notice Set a new BaseURI. Can be used with dynamic NFTs that have server APIs, IPFS-buckets
     /// or any other suitable system. Refer tokenURI(tokenId) for anchor-based or tokenId-based format.
     /// @param tokenBaseURI The token base-URI. Must end with slash '/'.
     function updateBaseURI(string calldata tokenBaseURI) public onlyMaintainer() {
-        baseURI = tokenBaseURI;
+        _baseUri = tokenBaseURI;
     }
     event BurnAuthorizationChange(ERC6956Authorization burnAuth, address indexed maintainer);
 
     function updateBurnAuthorization(ERC6956Authorization _burnAuth) public onlyMaintainer() {
-        burnAuthorizationMap = createAuthorizationMap(_burnAuth);
+        _burnAuthorizationMap = createAuthorizationMap(_burnAuth);
         emit BurnAuthorizationChange(_burnAuth, msg.sender);
         // TODO event
     }
@@ -395,7 +397,7 @@ contract ERC6956 is
     event ApproveAuthorizationChange(ERC6956Authorization approveAuth, address indexed maintainer);
 
     function updateApproveAuthorization(ERC6956Authorization _approveAuth) public onlyMaintainer() {
-        approveAuthorizationMap = createAuthorizationMap(_approveAuth);
+        _approveAuthorizationMap = createAuthorizationMap(_approveAuth);
         emit ApproveAuthorizationChange(_approveAuth, msg.sender);
 
         // TODO event
@@ -408,8 +410,8 @@ contract ERC6956 is
 
             // OWNER and ASSET shall normally be in sync anyway, so this is reasonable default 
             // authorization for approve and burn, as it mimicks ERC-721 behavior
-            burnAuthorizationMap = createAuthorizationMap(ERC6956Authorization.OWNER_AND_ASSET);
-            approveAuthorizationMap = createAuthorizationMap(ERC6956Authorization.OWNER_AND_ASSET);
+            _burnAuthorizationMap = createAuthorizationMap(ERC6956Authorization.OWNER_AND_ASSET);
+            _approveAuthorizationMap = createAuthorizationMap(ERC6956Authorization.OWNER_AND_ASSET);
     }
     /*
     * #################################################################################################################################
@@ -420,7 +422,7 @@ contract ERC6956 is
     /// Internal helper for toHex
     /// @dev Credits to Mikhail Vladimirov, refer https://stackoverflow.com/questions/67893318/solidity-how-to-represent-bytes32-as-string for rationale
     /// @param data 16 bytes of data to be converted to base32
-    function toHex16 (bytes16 data) internal pure returns (bytes32 result) {
+    function _toHex16 (bytes16 data) internal pure returns (bytes32 result) {
         result = bytes32 (data) & 0xFFFFFFFFFFFFFFFF000000000000000000000000000000000000000000000000 |
             (bytes32 (data) & 0x0000000000000000FFFFFFFFFFFFFFFF00000000000000000000000000000000) >> 64;
         result = result & 0xFFFFFFFF000000000000000000000000FFFFFFFF000000000000000000000000 |
@@ -441,8 +443,8 @@ contract ERC6956 is
     /// @dev Credits to Mikhail Vladimirov, refer https://stackoverflow.com/questions/67893318/solidity-how-to-represent-bytes32-as-string
     /// @param data data to be converted
     /// @return Hex string in format 0x....
-    function toHex (bytes32 data) internal pure returns (string memory) {
-        return string (abi.encodePacked ("0x", toHex16 (bytes16 (data)), toHex16 (bytes16 (data << 128))));
+    function _toHex (bytes32 data) internal pure returns (string memory) {
+        return string (abi.encodePacked ("0x", _toHex16 (bytes16 (data)), _toHex16 (bytes16 (data << 128))));
     }
 
     /*
