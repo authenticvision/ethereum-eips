@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "./IERC6956.sol";
 
 // Uncomment this line to use console.log
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 // TODO RENAME TO ERC6956 once granted, then derived contracts can say 'is ERC6956', when the reference
 // implementation shall be used
