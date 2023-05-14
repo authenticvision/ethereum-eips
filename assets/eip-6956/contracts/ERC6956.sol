@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 import "./IERC6956.sol";
 
@@ -49,10 +48,6 @@ contract ERC6956 is
      */
     Counters.Counter private _tokenIdCounter;
 
-
-    /// @dev The merkle-tree root node, where proof is validated against. Update via updateValidAnchors(). Use salt-leafs in merkle-trees!
-    bytes32 private _validAnchorsMerkleRoot;
-
     /// @dev Default validity timespan of attestation. In validateAttestation the attestationTime is checked for MIN(defaultAttestationvalidity, attestation.expiry)
     uint256 public maxAttestationExpireTime = 5*60; // 5min valid per default
 
@@ -90,13 +85,13 @@ contract ERC6956 is
         delete tokenByAnchor[anchor];
     }
 
-    function burnAnchor(bytes memory attestation) public
+    function burnAnchor(bytes memory attestation, bytes memory data) public
         authorized(ERC6956Role.ASSET, _burnAuthorizationMap)
      {
         address to;
         bytes32 anchor;
         bytes32 attestationHash;
-        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation);
+        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
         uint256 tokenId = tokenByAnchor[anchor];
         require(tokenId>0, "ERC-6956 Token does not exist, call transferAnchor first to mint");
         // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
@@ -108,16 +103,24 @@ contract ERC6956 is
         delete tokenByAnchor[anchor];
     }
 
-     function approveAnchor(bytes memory attestation) public 
+    function burnAnchor(bytes memory attestation) public {
+        return burnAnchor(attestation, "");
+    }
+
+     function approveAnchor(bytes memory attestation, bytes memory data) public 
         authorized(ERC6956Role.ASSET, _approveAuthorizationMap)
     {
         address to;
         bytes32 anchor;
         bytes32 attestationHash;
-        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation);
+        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
         require(tokenByAnchor[anchor]>0, "ERC-6956 Token does not exist, call transferAnchor first to mint");
         super._approve(to, tokenByAnchor[anchor]);
         _commitAttestation(to, anchor, attestationHash);
+    }
+
+    function approveAnchor(bytes memory attestation) public {
+        return approveAnchor(attestation, "");
     }
     
     function updateOracle(address _oracle, bool _trust) public
@@ -184,7 +187,7 @@ contract ERC6956 is
     }
    
     ///@dev Hook executed before decodeAttestationIfValid returns. Override in derived contracts
-    function _beforeAttestationIsUsed(bytes32 anchor, address to) internal view virtual {}
+    function _beforeAttestationIsUsed(bytes32 anchor, address to, bytes memory data) internal view virtual {}
     
 
     function _beforeTokenTransfer(address /*from*/, address /*to*/, uint256 tokenId, uint256 batchSize)
@@ -242,15 +245,14 @@ contract ERC6956 is
         emit AttestationUse(to, anchor, attestationHash, totalAttestationsByAnchor );
     }
 
-    function transferAnchor(bytes memory attestation) public virtual
+    function transferAnchor(bytes memory attestation, bytes memory data) public virtual
         returns (bytes32 anchor, address to, uint256 tokenId)
     {        
         bytes32 attestationHash;
-        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation);
+        (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
 
         uint256 fromToken = tokenByAnchor[anchor]; // tokenID, null if not exists
         address from = address(0); // owneraddress or 0x00, if not exists
-
 
         if(fromToken > 0) {
             from = ownerOf(fromToken);
@@ -269,13 +271,10 @@ contract ERC6956 is
         return (anchor, to, tokenId);
     }
 
-    /// @notice Update the Merkle root containing the valid anchors. Consider salt-leaves!
-    /// @dev Proof (safeMint, dropAnchor) needs to provided from this tree. The merkle-tree needs to contain at least one "salt leaf" in order to not publish the complete merkle-tree when all anchors should have been dropped at least once. 
-    /// @param _validAnchors The root, containing all anchors we want validated.
-    function updateValidAnchors(bytes32 _validAnchors) public onlyMaintainer() {
-        _validAnchorsMerkleRoot = _validAnchors;
-        emit ValidAnchorsUpdate(_validAnchors, msg.sender);
+    function transferAnchor(bytes memory attestation) public virtual returns (bytes32 anchor, address to, uint256 tokenId){
+        return transferAnchor(attestation, "");
     }
+    
 
     function hasAuthorization(ERC6956Role _role, uint8 _auth ) public pure returns (bool) {
         uint8 result = uint8(_auth & (1 << uint8(_role)));
@@ -311,7 +310,7 @@ contract ERC6956 is
     }
     
 
-    function decodeAttestationIfValid(bytes memory attestation) public view returns (address to, bytes32 anchor, bytes32 attestationHash) {
+    function decodeAttestationIfValid(bytes memory attestation, bytes memory data) public view returns (address to, bytes32 anchor, bytes32 attestationHash) {
         uint256 attestationTime;
         uint256 validStartTime;
         uint256 validEndTime;
@@ -319,7 +318,7 @@ contract ERC6956 is
         bytes32[] memory proof;
 
         attestationHash = keccak256(attestation);
-        (to, anchor, attestationTime, validStartTime, validEndTime, proof, signature) = abi.decode(attestation, (address, bytes32, uint256, uint256, uint256, bytes32[], bytes));
+        (to, anchor, attestationTime, validStartTime, validEndTime, signature) = abi.decode(attestation, (address, bytes32, uint256, uint256, uint256, bytes));
                 
         bytes32 messageHash = keccak256(abi.encodePacked(to, anchor, attestationTime, validStartTime, validEndTime, proof));
         address signer = _extractSigner(messageHash, signature);
@@ -334,28 +333,24 @@ contract ERC6956 is
         require(attestationTime + maxAttestationExpireTime > block.timestamp, "ERC-6956 Attestation expired");
         require(validEndTime > block.timestamp, "ERC-6956 Attestation no longer valid");
 
-        // check anchor is indeed valid in contract
-        require(validAnchor(anchor, proof), "ERC-6956 Anchor not valid");
+        
         // Calling hook!
-        _beforeAttestationIsUsed(anchor, to);
+        _beforeAttestationIsUsed(anchor, to, data);
         return(to,  anchor, attestationHash);
-    }
-
-    function validAnchor(bytes32 anchor, bytes32[] memory proof) public view returns (bool) {
-        return MerkleProof.verify(
-            proof,
-            _validAnchorsMerkleRoot,
-            keccak256(bytes.concat(keccak256(abi.encode(anchor)))));
     }
 
     function _afterTokenTransfer(address from, address to, uint256 firstTokenId, uint256 /*batchSize*/) internal virtual override(ERC721) {
         emit AnchorTransfer(from, to, anchorByToken[firstTokenId], firstTokenId);
     }
 
-    function assertAttestation(bytes memory attestation) 
-        public view returns (bool) {
-            decodeAttestationIfValid(attestation);
+    function assertAttestation(bytes memory attestation, bytes memory data) 
+        public virtual view returns (bool) {
+            decodeAttestationIfValid(attestation, data);
             return true;        
+    }
+
+    function assertAttestation(bytes memory attestation) public virtual view returns (bool) {
+        return assertAttestation(attestation, "");
     }
 
     /// @notice Compatible with ERC721.tokenURI(). Returns {baseURI}{anchor}

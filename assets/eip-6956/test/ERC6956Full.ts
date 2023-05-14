@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 import { createHash } from 'node:crypto';
 import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
 import { float } from "hardhat/internal/core/params/argumentTypes";
-import { ERC6956Authorization, ERC6956Role, merkleTestAnchors, NULLADDR, createAttestation, AttestedTransferLimitUpdatePolicy, invalidAnchor} from "./commons";
+import { ERC6956Authorization, ERC6956Role, merkleTestAnchors, NULLADDR, createAttestation, AttestedTransferLimitUpdatePolicy, invalidAnchor, createAttestationWithData} from "./commons";
 
 describe("ERC6956: Asset-Bound NFT --- Full", function () {
   // Fixture to deploy the abnftContract contract and assigne roles.
@@ -21,10 +21,10 @@ describe("ERC6956: Asset-Bound NFT --- Full", function () {
     const {abnftContract, merkleTree, owner, maintainer, oracle, alice, bob, mallory, hacker, carl, gasProvider} = await deployAbNftFixture();
   
     const anchor = merkleTestAnchors[0][0];
-    const mintAttestationAlice = await createAttestation(alice.address, anchor, oracle, merkleTree); // Mint to alice
+    const [mintAttestationAlice, dataAlice] = await createAttestationWithData(alice.address, anchor, oracle, merkleTree); // Mint to alice
 
     const expectedTokenId = 1;
-    await expect(abnftContract.connect(gasProvider).transferAnchor(mintAttestationAlice))
+    await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](mintAttestationAlice, dataAlice))
     .to.emit(abnftContract, "Transfer") // Standard ERC721 event
     .withArgs(NULLADDR, alice.address, expectedTokenId)
     .to.emit(abnftContract, "AnchorFloatingStateChange") // floating state needs to be announced for each anchor implementing IERC6956Floatable
@@ -73,6 +73,22 @@ describe("ERC6956: Asset-Bound NFT --- Full", function () {
   });
 */
 
+describe("Valid Anchors (merkle-trees)", function () {
+  it("SHOULDN't allow attesting arbitrary anchors", async function() {
+    const { abnftContract, merkleTree, maintainer, oracle, alice, hacker } = await loadFixture(deployAbNftFixture);      
+
+    // Publish root node of a made up tree, s.t. all proofs we use are from a different tree
+    const madeUpRootNode = '0xaaaaaaaab0c754f1c68c699990a456c6073aaa28109c1bd83880c49dcece3f65'; // random string
+    abnftContract.connect(maintainer).updateValidAnchors(madeUpRootNode)
+    const anchor = merkleTestAnchors[0][0];
+
+    // Let the oracle create an valid attestation (from the oracle's view)
+    const [attestationAlice, dataAlice] = await createAttestationWithData(alice.address, anchor, oracle, merkleTree); // Mint to alice  
+    await expect(abnftContract.connect(hacker)["transferAnchor(bytes,bytes)"](attestationAlice, dataAlice))
+    .to.revertedWith("ERC-6956: Anchor not valid")
+  });
+});
+
 describe("Anchor-Floating", function () {
   it("SHOULD only allow maintainer to specify canStartFloating and canStopFloating", async function () {
     const { abnftContract, merkleTree, owner, maintainer, mallory } = await loadFixture(deployAbNftAndMintTokenToAliceFixture);
@@ -89,7 +105,7 @@ describe("Anchor-Floating", function () {
     const { abnftContract, merkleTree, anchor, owner, maintainer, bob, oracle, mallory, gasProvider } = await loadFixture(deployAbNftAndMintTokenToAliceFixture);
 
     const defaultFloatingAnchor = merkleTestAnchors[1][0];
-    const mintToBobAttestation = await createAttestation(bob.address, defaultFloatingAnchor, oracle, merkleTree); // Mint to alice
+    const [mintToBobAttestation, mintToBobData] = await createAttestationWithData(bob.address, defaultFloatingAnchor, oracle, merkleTree); // Mint to alice
     const expectedTokenId = 2;
 
     // Mallory mustnot be able to change default behavior
@@ -101,7 +117,7 @@ describe("Anchor-Floating", function () {
     .to.emit(abnftContract, "DefaultFloatingStateChange")
     .withArgs(true, maintainer.address);
 
-    await expect(abnftContract.connect(gasProvider).transferAnchor(mintToBobAttestation))
+    await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](mintToBobAttestation, mintToBobData))
     .to.emit(abnftContract, "Transfer")
     .withArgs(NULLADDR, bob.address, expectedTokenId)
     .to.emit(abnftContract, "AnchorFloatingStateChange")
@@ -191,8 +207,8 @@ describe("Anchor-Floating", function () {
     await expect(abnftContract.connect(maintainer).allowFloating(anchor, true))
     .to.revertedWith("ERC-6956: No permission to start floating")
     
-    const attestationMaintainer = await createAttestation(maintainer.address, anchor, oracle, merkleTree); 
-    await expect(abnftContract.connect(gasProvider).transferAnchor(attestationMaintainer))
+    const [attestationMaintainer, dataMaintainer] = await createAttestationWithData(maintainer.address, anchor, oracle, merkleTree); 
+    await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](attestationMaintainer, dataMaintainer))
     .to.emit(abnftContract, "Transfer")
     .withArgs(alice.address, maintainer.address, tokenId)
            
@@ -208,10 +224,10 @@ describe("Anchor-Floating", function () {
   it("SHOULD allow approveAnchor followed by safeTransfer when anchor IS floating", async function() {
     const { abnftContract, anchor, maintainer, oracle, merkleTree, alice, bob, gasProvider, mallory,carl} = await loadFixture(deployAbNftAndMintTokenToAliceFixture);      
     const tokenId = await abnftContract.tokenByAnchor(anchor);
-    const attestationBob = await createAttestation(bob.address, anchor, oracle, merkleTree); // Mint to alice
+    const [attestationBob, dataBob] = await createAttestationWithData(bob.address, anchor, oracle, merkleTree); // Mint to alice
 
     // somebody approves himself via attestation approves bob to act on her behalf
-    await expect(abnftContract.connect(gasProvider).approveAnchor(attestationBob))
+    await expect(abnftContract.connect(gasProvider)["approveAnchor(bytes,bytes)"](attestationBob,dataBob))
     .to.emit(abnftContract, "Approval") // Standard ERC721 event
     .withArgs(await abnftContract.ownerOf(tokenId), bob.address, tokenId);
     
@@ -238,8 +254,8 @@ describe("Attested Transfer Limits", function () {
   it("SHOULD count attested transfers (transfer, burn, approve)", async function () {
     const { abnftContract, anchor, maintainer, oracle, merkleTree, alice, bob, gasProvider, mallory,carl} = await loadFixture(deployAbNftAndMintTokenToAliceFixture);      
     const tokenId = await abnftContract.tokenByAnchor(anchor);
-    const attestationBob = await createAttestation(bob.address, anchor, oracle, merkleTree); // Mint to alice
-    const attestationCarl = await createAttestation(carl.address, anchor, oracle, merkleTree); // Mint to alice
+    const [attestationBob, dataBob] = await createAttestationWithData(bob.address, anchor, oracle, merkleTree); // Mint to alice
+    const [attestationCarl, dataCarl] = await createAttestationWithData(carl.address, anchor, oracle, merkleTree); // Mint to alice
 
     
     // Transfers shall be counted - also the one from the fixture
@@ -247,12 +263,12 @@ describe("Attested Transfer Limits", function () {
     .to.be.equal(1);
 
     // Should increase count by 1
-    await expect(abnftContract.approveAnchor(attestationBob))
+    await expect(abnftContract["approveAnchor(bytes,bytes)"](attestationBob, dataBob))
     .to.emit(abnftContract, "Approval") // Standard ERC721 event
     .withArgs(await abnftContract.ownerOf(tokenId), bob.address, tokenId);
 
     // Should increase count by 1
-    await expect(abnftContract.burnAnchor(attestationCarl))
+    await expect(abnftContract["burnAnchor(bytes,bytes)"](attestationCarl, dataCarl))
     .to.emit(abnftContract, "Transfer")
     .withArgs(alice.address, NULLADDR, tokenId);
 
@@ -287,10 +303,10 @@ describe("Attested Transfer Limits", function () {
     const { abnftContract, maintainer, oracle, merkleTree, alice, bob, gasProvider, mallory,carl} = await deployForAttestationLimit(globalLimit, AttestedTransferLimitUpdatePolicy.FLEXIBLE);
 
     const anchor = merkleTestAnchors[0][0];
-    const mintAttestationAlice = await createAttestation(alice.address, anchor, oracle, merkleTree); // Mint to alice
+    const [mintAttestationAlice, mintDataAlice] = await createAttestationWithData(alice.address, anchor, oracle, merkleTree); // Mint to alice
     const tokenId = 1;
 
-    await expect(abnftContract.connect(gasProvider).transferAnchor(mintAttestationAlice))
+    await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](mintAttestationAlice, mintDataAlice))
     .to.emit(abnftContract, "Transfer") // Standard ERC721 event
     .withArgs(NULLADDR, alice.address, tokenId);
 
@@ -321,28 +337,28 @@ describe("Attested Transfer Limits", function () {
     const anchor = merkleTestAnchors[0][0]; // can be transferred twice
     const limitedAnchor = merkleTestAnchors[1][0]; // can be transferred once
 
-    const anchorToAlice = await createAttestation(alice.address, anchor, oracle, merkleTree); // Mint to alice
-    const anchorToBob = await createAttestation(bob.address, anchor, oracle, merkleTree); // Transfer to bob
-    const anchorToHacker = await createAttestation(hacker.address, anchor, oracle, merkleTree); // Limit reached!
+    const [anchorToAlice, anchorToAliceData] = await createAttestationWithData(alice.address, anchor, oracle, merkleTree); // Mint to alice
+    const [anchorToBob, anchorToBobData] = await createAttestationWithData(bob.address, anchor, oracle, merkleTree); // Transfer to bob
+    const [anchorToHacker, anchorToHackerData] = await createAttestationWithData(hacker.address, anchor, oracle, merkleTree); // Limit reached!
 
-    const limitedAnchorToCarl = await createAttestation(carl.address, limitedAnchor, oracle, merkleTree); // Mint to carl
-    const limitedAnchorToMallory = await createAttestation(mallory.address, limitedAnchor, oracle, merkleTree); // Limit reached!
+    const [limitedAnchorToCarl, limitedAnchorToCarlData] = await createAttestationWithData(carl.address, limitedAnchor, oracle, merkleTree); // Mint to carl
+    const [limitedAnchorToMallory, limitedAnchorToMalloryData] = await createAttestationWithData(mallory.address, limitedAnchor, oracle, merkleTree); // Limit reached!
         
     expect(await abnftContract.attestationUsagesLeft(anchor))
     .to.be.equal(globalLimit);
 
     // ####################################### FIRST ANCHOR
-    await expect(abnftContract.connect(gasProvider).transferAnchor(anchorToAlice))
+    await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](anchorToAlice, anchorToAliceData))
     .to.emit(abnftContract, "Transfer");
 
-    await expect(abnftContract.connect(gasProvider).transferAnchor(anchorToBob))
+    await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](anchorToBob, anchorToBobData))
     .to.emit(abnftContract, "Transfer");
 
-    await expect(abnftContract.connect(gasProvider).transferAnchor(anchorToHacker))
+    await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](anchorToHacker, anchorToHackerData))
     .to.revertedWith("ERC-6956: No attested transfers left");
 
     // ###################################### SECOND ANCHOR
-    await expect(abnftContract.connect(gasProvider).transferAnchor(limitedAnchorToCarl))
+    await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](limitedAnchorToCarl, limitedAnchorToCarlData))
     .to.emit(abnftContract, "Transfer");
 
     // Update anchor based limit
@@ -353,7 +369,7 @@ describe("Attested Transfer Limits", function () {
     expect(await abnftContract.attestationUsagesLeft(limitedAnchor))
     .to.be.equal(specificAnchorLimit-1); // one was used to mint
 
-    await expect(abnftContract.connect(gasProvider).transferAnchor(limitedAnchorToMallory))
+    await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](limitedAnchorToMallory, limitedAnchorToMalloryData))
     .to.revertedWith("ERC-6956: No attested transfers left");
   });
 });

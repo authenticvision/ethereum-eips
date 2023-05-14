@@ -49,16 +49,27 @@ export const NULLADDR = ethers.utils.getAddress('0x00000000000000000000000000000
     ]
 
 
-export async function createAttestation(to, anchor, signer, merkleTree, validStartTime= 0) {
+export async function createAttestation(to, anchor, signer, validStartTime= 0) {
 
 
         const attestationTime = Math.floor(Date.now() / 1000.0); // Now in seconds
         const expiryTime = attestationTime + 5 * 60; // 5min valid
-        const proof = merkleTree.getProof([anchor]);
+        //const proof = merkleTree.getProof([anchor]);
 
-        const messageHash = ethers.utils.solidityKeccak256(["address", "bytes32", "uint256", 'uint256', "uint256", "bytes32[]"], [to, anchor, attestationTime, validStartTime, expiryTime, proof]);
+        const messageHash = ethers.utils.solidityKeccak256(["address", "bytes32", "uint256", 'uint256', "uint256"], [to, anchor, attestationTime, validStartTime, expiryTime]);
         const sig = await signer.signMessage(ethers.utils.arrayify(messageHash));
        
        
-        return ethers.utils.defaultAbiCoder.encode(['address', 'bytes32', 'uint256', 'uint256', 'uint256', 'bytes32[]', 'bytes'], [to, anchor, attestationTime,  validStartTime, expiryTime, proof, sig]);
+        return ethers.utils.defaultAbiCoder.encode(['address', 'bytes32', 'uint256', 'uint256', 'uint256', 'bytes'], [to, anchor, attestationTime,  validStartTime, expiryTime, sig]);
       }
+
+
+export async function createAttestationWithData(to, anchor, signer, merkleTree, validStartTime= 0) {
+
+        const attestation = await createAttestation(to, anchor, signer, validStartTime); // Now in seconds
+        
+        const proof = merkleTree.getProof([anchor]);
+        const data = ethers.utils.defaultAbiCoder.encode(['bytes32[]'], [proof])
+              
+        return  [attestation, data];
+}

@@ -36,13 +36,12 @@ interface IERC6956 {
     event AnchorTransfer(address indexed from, address indexed to, bytes32 indexed anchor, uint256 tokenId);
     event AnchorApproval(address indexed owner, address approved, bytes32 indexed anchor, uint256 tokenId);
     event AttestationUse(address indexed to, bytes32 indexed anchor, bytes32 indexed attestationHash, uint256 totalUsedAttestationsForAnchor);
-    event ValidAnchorsUpdate(bytes32 indexed validAnchorHash, address indexed maintainer);
 
     // state requesting methods
     function anchorByToken(uint256 tokenId) external view returns (bytes32 anchor);
     function tokenByAnchor(bytes32 anchor) external view returns (uint256 tokenId);
     function attestationsUsedByAnchor(bytes32 anchor) external view returns (uint256 usageCount);
-    function decodeAttestationIfValid(bytes memory attestation) external view returns (address to, bytes32 anchor, bytes32 attestationHash);
+    function decodeAttestationIfValid(bytes memory attestation, bytes memory data) external view returns (address to, bytes32 anchor, bytes32 attestationHash);
     function anchorIsReleased(bytes32 anchor) external view returns (bool isReleased);
 
 
@@ -64,11 +63,14 @@ interface IERC6956 {
      *      Emits AnchorTransfer and AttestationUsed  
      *  
      * @param attestation Attestation, refer EIP-6956 for details
+     * @param data Additional data, may be used for additional transfer-conditions, may be sent partly or in full in a call to safeTransferFrom
      * 
      * @return anchor The anchor, which is mapped to `tokenId`
      * @return to The `to` address, where the token with `tokenId` was transferd
-     * @return tokenId The tokenId, which is mapped to the `anchor`     * 
+     * @return tokenId The tokenId, which is mapped to the `anchor`
      */
+    function transferAnchor(bytes memory attestation, bytes memory data) external returns (bytes32 anchor, address to, uint256 tokenId);
+
     function transferAnchor(bytes memory attestation) external returns (bytes32 anchor, address to, uint256 tokenId);
 
      /**
@@ -83,6 +85,9 @@ interface IERC6956 {
      */
     function approveAnchor(bytes memory attestation) external;
 
+    function approveAnchor(bytes memory attestation, bytes memory data) external;
+
+
     /**
      * @notice Burns the token mapped to attestation.anchor. Uses ERC-721._burn.
      * @dev Permissionless, i.e. anybody invoke and sign a transaction. The transfer is authorized through the oracle-signed attestation.
@@ -95,10 +100,5 @@ interface IERC6956 {
      */
     function burnAnchor(bytes memory attestation) external;
 
-    
-    /// @notice Update the Merkle root containing the valid anchors. Consider salt-leaves!
-    /// @dev Proof (transferAnchor) needs to be provided from this tree. 
-    /// @dev The merkle-tree needs to contain at least one "salt leaf" in order to not publish the complete merkle-tree when all anchors should have been dropped at least once. 
-    /// @param merkleRootNode The root, containing all anchors we want validated.
-    function updateValidAnchors(bytes32 merkleRootNode) external;
+    function burnAnchor(bytes memory attestation, bytes memory data) external;
 }

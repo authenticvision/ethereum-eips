@@ -12,8 +12,9 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "./ERC6956.sol";
 import "./IERC6956AttestationLimited.sol";
 import "./IERC6956Floatable.sol";
+import "./IERC6956ValidAnchors.sol";
 
-contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable {
+contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, IERC6956ValidAnchors {
 
     uint8 private _canStartFloatingMap;
     uint8 private _canStopFloatingMap;
@@ -31,6 +32,9 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable {
     bool public canFloat; // Indicates whether tokens can "float" in general, i.e. be transferred without attestation
     bool public allFloating;
     bool public floatingByDefault;
+
+    /// @dev The merkle-tree root node, where proof is validated against. Update via updateValidAnchors(). Use salt-leafs in merkle-trees!
+    bytes32 private _validAnchorsMerkleRoot;
 
     function _requireValidLimitUpdate(uint256 oldValue, uint256 newValue) internal view {
         if(newValue > oldValue) {
@@ -115,10 +119,34 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable {
         _allowFloating(anchor, _doFloat);        
     }
 
-    function _beforeAttestationIsUsed(bytes32 anchor, address to) internal view virtual override(ERC6956) {
+    function _beforeAttestationIsUsed(bytes32 anchor, address to, bytes memory data) internal view virtual override(ERC6956) {
         // empty, can be overwritten by derived conctracts.
         require(attestationUsagesLeft(anchor) > 0, "ERC-6956: No attested transfers left");
-        super._beforeAttestationIsUsed(anchor, to);
+
+        // IERC6956ValidAnchors check anchor is indeed valid in contract
+        require(data.length > 0, "ERC-6956: data must contain merkle-proof");
+        bytes32[] memory proof;
+        (proof) = abi.decode(data, (bytes32[])); // Decode it with potentially more data following. If there is more data, this may be passed on to safeTransfer
+        require(validAnchor(anchor, proof), "ERC-6956: Anchor not valid");
+
+        super._beforeAttestationIsUsed(anchor, to, data);
+    }
+
+
+    /// @notice Update the Merkle root containing the valid anchors. Consider salt-leaves!
+    /// @dev Proof (transferAnchor) needs to be provided from this tree. 
+    /// @dev The merkle-tree needs to contain at least one "salt leaf" in order to not publish the complete merkle-tree when all anchors should have been dropped at least once. 
+    /// @param merkleRootNode The root, containing all anchors we want validated.
+    function updateValidAnchors(bytes32 merkleRootNode) public onlyMaintainer() {
+        _validAnchorsMerkleRoot = merkleRootNode;
+        emit ValidAnchorsUpdate(merkleRootNode, msg.sender);
+    }
+
+    function validAnchor(bytes32 anchor, bytes32[] memory proof) public view returns (bool) {
+        return MerkleProof.verify(
+            proof,
+            _validAnchorsMerkleRoot,
+            keccak256(bytes.concat(keccak256(abi.encode(anchor)))));
     }
 
     function isFloating(bytes32 anchor) public view returns (bool){
