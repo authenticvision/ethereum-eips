@@ -29,6 +29,7 @@ import "./IERC6956ValidAnchors.sol";
  * E24   | No attested transfers left
  * E25   | data must contain merkle-proof
  * E26   | Anchor not valid
+ * E27   | Updating attestedTransferLimit violates policy
  */
 contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, IERC6956ValidAnchors {
 
@@ -51,9 +52,9 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
 
     function _requireValidLimitUpdate(uint256 oldValue, uint256 newValue) internal view {
         if(newValue > oldValue) {
-            require(transferLimitPolicy == AttestationLimitUpdatePolicy.FLEXIBLE || transferLimitPolicy == AttestationLimitUpdatePolicy.INCREASE_ONLY, "EIP-6956: Updating attestedTransferLimit violates policy");
+            require(transferLimitPolicy == AttestationLimitUpdatePolicy.FLEXIBLE || transferLimitPolicy == AttestationLimitUpdatePolicy.INCREASE_ONLY, "ERC6956-E27");
         } else {
-            require(transferLimitPolicy == AttestationLimitUpdatePolicy.FLEXIBLE || transferLimitPolicy == AttestationLimitUpdatePolicy.DECREASE_ONLY, "EIP-6956: Updating attestedTransferLimit violates policy");
+            require(transferLimitPolicy == AttestationLimitUpdatePolicy.FLEXIBLE || transferLimitPolicy == AttestationLimitUpdatePolicy.DECREASE_ONLY, "ERC6956-E27");
         }
     }
 

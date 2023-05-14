@@ -12,6 +12,8 @@
     "modifier-name-mixedcase": "warn",
     "named-parameters-mapping": "off",
     "private-vars-leading-underscore": ["warn",{"strict":false}],
-    "ordering": "warn"
+    "ordering": "warn",
+    "no-unused-vars": "warn",
+    "reason-string": ["warn",{"maxLength":12}]
   }
 }
