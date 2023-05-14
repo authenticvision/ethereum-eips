@@ -44,9 +44,6 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
     uint256 public globalAttestedTransferLimitByAnchor;
     AttestationLimitUpdatePolicy public transferLimitPolicy;
 
-    /// @dev Counts the number of attested transfers by Anchor
-    bool public canFloat; // Indicates whether tokens can "float" in general, i.e. be transferred without attestation
-    bool public allFloating;
     bool public floatingByDefault;
 
     /// @dev The merkle-tree root node, where proof is validated against. Update via updateValidAnchors(). Use salt-leafs in merkle-trees!
