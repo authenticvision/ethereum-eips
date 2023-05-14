@@ -111,7 +111,7 @@ contract ERC6956 is
         delete tokenByAnchor[anchor];
     }
 
-    function burnAnchor(bytes memory attestation, bytes memory data) public
+    function burnAnchor(bytes memory attestation, bytes memory data) public virtual
         authorized(ERC6956Role.ASSET, _burnAuthorizationMap)
      {
         address to;
@@ -129,11 +129,11 @@ contract ERC6956 is
         delete tokenByAnchor[anchor];
     }
 
-    function burnAnchor(bytes memory attestation) public {
+    function burnAnchor(bytes memory attestation) public virtual {
         return burnAnchor(attestation, "");
     }
 
-     function approveAnchor(bytes memory attestation, bytes memory data) public 
+     function approveAnchor(bytes memory attestation, bytes memory data) public virtual 
         authorized(ERC6956Role.ASSET, _approveAuthorizationMap)
     {
         address to;
@@ -145,7 +145,7 @@ contract ERC6956 is
         _commitAttestation(to, anchor, attestationHash);
     }
 
-    function approveAnchor(bytes memory attestation) public {
+    function approveAnchor(bytes memory attestation) public virtual {
         return approveAnchor(attestation, "");
     }
     
@@ -213,11 +213,11 @@ contract ERC6956 is
     }
    
     ///@dev Hook executed before decodeAttestationIfValid returns. Override in derived contracts
-    function _beforeAttestationIsUsed(bytes32 anchor, address to, bytes memory data) internal view virtual {}
+    function _beforeAttestationUse(bytes32 anchor, address to, bytes memory data) internal view virtual {}
     
 
     function _beforeTokenTransfer(address /*from*/, address /*to*/, uint256 tokenId, uint256 batchSize)
-        internal view
+        internal virtual view
         override(ERC721, ERC721Enumerable)
     {
         require(batchSize == 1, "ERC6956-E4");
@@ -244,7 +244,7 @@ contract ERC6956 is
     /// Parameters:
     /// @param to Beneficiary account address
     /// @param anchor The anchor (from Merkle tree)
-    function _safeMint(address to, bytes32 anchor) internal {
+    function _safeMint(address to, bytes32 anchor) internal virtual {
         assert(tokenByAnchor[anchor] <= 0); // saftey for contract-internal errors
         uint256 tokenId = _burnedTokensByAnchor[anchor];
 
@@ -361,7 +361,7 @@ contract ERC6956 is
 
         
         // Calling hook!
-        _beforeAttestationIsUsed(anchor, to, data);
+        _beforeAttestationUse(anchor, to, data);
         return(to,  anchor, attestationHash);
     }
 

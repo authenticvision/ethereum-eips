@@ -135,7 +135,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         _allowFloating(anchor, _doFloat);        
     }
 
-    function _beforeAttestationIsUsed(bytes32 anchor, address to, bytes memory data) internal view virtual override(ERC6956) {
+    function _beforeAttestationUse(bytes32 anchor, address to, bytes memory data) internal view virtual override(ERC6956) {
         // empty, can be overwritten by derived conctracts.
         require(attestationUsagesLeft(anchor) > 0, "ERC6956-E24");
 
@@ -145,7 +145,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         (proof) = abi.decode(data, (bytes32[])); // Decode it with potentially more data following. If there is more data, this may be passed on to safeTransfer
         require(validAnchor(anchor, proof), "ERC6956-E26");
 
-        super._beforeAttestationIsUsed(anchor, to, data);
+        super._beforeAttestationUse(anchor, to, data);
     }
 
 
