@@ -4,7 +4,9 @@ import { ethers } from "hardhat";
 import { createHash } from 'node:crypto';
 import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
 import { float } from "hardhat/internal/core/params/argumentTypes";
-import { ERC6956Authorization, ERC6956Role, merkleTestAnchors, NULLADDR, createAttestation, AttestedTransferLimitUpdatePolicy, invalidAnchor, createAttestationWithData} from "./commons";
+import { ERC6956Authorization, merkleTestAnchors, NULLADDR, AttestedTransferLimitUpdatePolicy, invalidAnchor, createAttestationWithData} from "./commons";
+import { IERC6956AttestationLimitedInterfaceId, IERC6956InterfaceId, IERC6956FloatableInterfaceId, IERC6956ValidAnchorsInterfaceId} from "./commons";
+
 
 describe("ERC6956: Asset-Bound NFT --- Full", function () {
   // Fixture to deploy the abnftContract contract and assigne roles.
@@ -62,16 +64,21 @@ describe("ERC6956: Asset-Bound NFT --- Full", function () {
     return actuallyDeploy(limit, policy);
   }
 
-  /*
+
+  
   describe("Deployment & Settings", function () {
     it("Should implement EIP-165 support the EIP-6956 interface", async function () {
-      const { abnftContract } = await loadFixture(deployPTNFTFixture);
-      expect("TODO not implemented yet").to.be.equal(true);
-      // FIXME
-      // expect(await abnftContract.supportsInterface('0x0489b56f')).to.equal(true);
+      const { abnftContract } = await loadFixture(deployAbNftFixture);
+    
+      expect(await abnftContract.supportsInterface(IERC6956InterfaceId)).to.equal(true);
+      expect(await abnftContract.supportsInterface(IERC6956FloatableInterfaceId)).to.equal(true);
+      expect(await abnftContract.supportsInterface(IERC6956ValidAnchorsInterfaceId)).to.equal(true);
+      expect(await abnftContract.supportsInterface(IERC6956AttestationLimitedInterfaceId)).to.equal(true);
     });
   });
-*/
+
+
+
 
 describe("Valid Anchors (merkle-trees)", function () {
   it("SHOULDN't allow attesting arbitrary anchors", async function() {

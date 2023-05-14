@@ -176,4 +176,18 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
 
         // Note per default no-one change floatability. canStartFloating and canStopFloating needs to be configured first!        
     }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC6956)
+        returns (bool)
+    {
+        return
+            interfaceId == type(IERC6956AttestationLimited).interfaceId ||
+            interfaceId == type(IERC6956Floatable).interfaceId ||
+            interfaceId == type(IERC6956ValidAnchors).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
 }
