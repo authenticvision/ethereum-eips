@@ -66,7 +66,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
 
     function updateAnchorFloatingByDefault(bool _floatsByDefault) public 
     onlyMaintainer() {
-        floatingByDefault = true;
+        floatingByDefault = _floatsByDefault;
         emit DefaultFloatingStateChange(_floatsByDefault, msg.sender);      
     }
 
