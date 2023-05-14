@@ -85,7 +85,7 @@ describe("Valid Anchors (merkle-trees)", function () {
     // Let the oracle create an valid attestation (from the oracle's view)
     const [attestationAlice, dataAlice] = await createAttestationWithData(alice.address, anchor, oracle, merkleTree); // Mint to alice  
     await expect(abnftContract.connect(hacker)["transferAnchor(bytes,bytes)"](attestationAlice, dataAlice))
-    .to.revertedWith("ERC-6956: Anchor not valid")
+    .to.revertedWith("ERC6956-E26")
   });
 });
 
@@ -94,7 +94,7 @@ describe("Anchor-Floating", function () {
     const { abnftContract, merkleTree, owner, maintainer, mallory } = await loadFixture(deployAbNftAndMintTokenToAliceFixture);
 
     await expect(abnftContract.connect(mallory).canStartFloating(ERC6956Authorization.ALL))
-    .to.revertedWith("ERC6956: Only maintainer allowed");
+    .to.revertedWith("ERC6956-E1");
 
     await expect(abnftContract.connect(maintainer).canStartFloating(ERC6956Authorization.ALL))
     .to.emit(abnftContract, "CanStartFloating")
@@ -110,7 +110,7 @@ describe("Anchor-Floating", function () {
 
     // Mallory mustnot be able to change default behavior
     await expect(abnftContract.connect(mallory).updateAnchorFloatingByDefault(true))
-    .to.revertedWith("ERC6956: Only maintainer allowed");
+    .to.revertedWith("ERC6956-E1");
 
     // Maintainer must be able to update
     await expect(abnftContract.connect(maintainer).updateAnchorFloatingByDefault(true))
@@ -140,7 +140,7 @@ describe("Anchor-Floating", function () {
     .withArgs(ERC6956Authorization.ASSET_AND_ISSUER, maintainer.address);
 
     await expect(abnftContract.connect(alice).allowFloating(anchor, true))
-    .to.revertedWith("ERC-6956: No permission to start floating")
+    .to.revertedWith("ERC6956-E21")
 
     await expect(abnftContract.connect(maintainer).canStartFloating(ERC6956Authorization.OWNER_AND_ASSET))
     .to.emit(abnftContract, "CanStartFloating")
@@ -181,7 +181,7 @@ describe("Anchor-Floating", function () {
     .withArgs(ERC6956Authorization.OWNER, maintainer.address);
 
     await expect(abnftContract.connect(maintainer).allowFloating(anchor, true))
-    .to.revertedWith("ERC-6956: No permission to start floating")
+    .to.revertedWith("ERC6956-E21")
 
     await expect(abnftContract.connect(maintainer).canStartFloating(ERC6956Authorization.ISSUER))
     .to.emit(abnftContract, "CanStartFloating")
@@ -205,7 +205,7 @@ describe("Anchor-Floating", function () {
     .withArgs(ERC6956Authorization.OWNER, maintainer.address);
 
     await expect(abnftContract.connect(maintainer).allowFloating(anchor, true))
-    .to.revertedWith("ERC-6956: No permission to start floating")
+    .to.revertedWith("ERC6956-E21")
     
     const [attestationMaintainer, dataMaintainer] = await createAttestationWithData(maintainer.address, anchor, oracle, merkleTree); 
     await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](attestationMaintainer, dataMaintainer))
@@ -285,7 +285,7 @@ describe("Attested Transfer Limits", function () {
     const { abnftContract, maintainer, oracle, merkleTree, alice, bob, gasProvider, mallory,carl} = await deployForAttestationLimit(10, AttestedTransferLimitUpdatePolicy.FLEXIBLE);
 
     await expect(abnftContract.connect(mallory).updateGlobalAttestationLimit(5))
-    .to.revertedWith("ERC6956: Only maintainer allowed");
+    .to.revertedWith("ERC6956-E1");
 
     // Should be able to update
     await expect(abnftContract.connect(maintainer).updateGlobalAttestationLimit(5))
@@ -355,7 +355,7 @@ describe("Attested Transfer Limits", function () {
     .to.emit(abnftContract, "Transfer");
 
     await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](anchorToHacker, anchorToHackerData))
-    .to.revertedWith("ERC-6956: No attested transfers left");
+    .to.revertedWith("ERC6956-E24");
 
     // ###################################### SECOND ANCHOR
     await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](limitedAnchorToCarl, limitedAnchorToCarlData))
@@ -370,7 +370,7 @@ describe("Attested Transfer Limits", function () {
     .to.be.equal(specificAnchorLimit-1); // one was used to mint
 
     await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](limitedAnchorToMallory, limitedAnchorToMalloryData))
-    .to.revertedWith("ERC-6956: No attested transfers left");
+    .to.revertedWith("ERC6956-E24");
   });
 });
   

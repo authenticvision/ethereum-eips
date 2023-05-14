@@ -161,7 +161,7 @@ describe("Authorization Map tests", function () {
 
         const fraudAttestation = await createAttestation(to, anchor, mallory);
         await expect(abnftContract['assertAttestation(bytes)'](fraudAttestation))
-          .to.be.revertedWith("EIP-6956 Attestation not signed by trusted oracle");
+          .to.be.revertedWith("ERC6956-E8");
       });
 
       it("SHOULD allow mint and transfer with valid attestations", async function() {
@@ -178,7 +178,7 @@ describe("Authorization Map tests", function () {
         // Token is now at bob... so alice may hire a hacker quickly and re-use her attestation to get 
         // the token back from Bob ... which shall of course not work
         await expect(abnftContract.connect(hacker)["transferAnchor(bytes)"](mintAttestationAlice))
-        .to.revertedWith("EIP-6956 Attestation already used") // Standard ERC721 event
+        .to.revertedWith("ERC6956-E9") // Standard ERC721 event
       })    
       
 
@@ -186,7 +186,7 @@ describe("Authorization Map tests", function () {
         const { abnftContract, alice, bob} = await loadFixture(deployABTandMintTokenToAlice);      
   
         await expect(abnftContract.connect(alice).transferFrom(alice.address, bob.address, 1)) 
-        .to.revertedWith("EIP-6956: Token not transferable");
+        .to.revertedWith("ERC6956-E5");
       })
       
       it("SHOULDN'T allow approveAnchor followed by safeTransfer when anchor not floating", async function() {
@@ -206,7 +206,7 @@ describe("Authorization Map tests", function () {
 
         // Even though Bob is approved, cannot transfer, since anchor is not floating
         await expect(abnftContract.connect(bob).transferFrom(alice.address, carl.address, tokenId))
-        .to.revertedWith("EIP-6956: Token not transferable");
+        .to.revertedWith("ERC6956-E5");
       })
 
       it("SHOULDN't allow using attestations before validity ", async function() {
@@ -218,7 +218,7 @@ describe("Authorization Map tests", function () {
         const twoMinInFuture =  curTime + 2 * 60;
         const attestationAlice = await createAttestation(alice.address, anchor, oracle, twoMinInFuture); // Mint to alice  
         await expect(abnftContract.connect(alice)["transferAnchor(bytes)"](attestationAlice))
-        .to.revertedWith("ERC-6956 Attestation not valid yet")
+        .to.revertedWith("ERC6956-E10")
       })
   });
 
@@ -229,7 +229,7 @@ describe("Authorization Map tests", function () {
 
       // Let bob try to burn... should not work
       await expect(abnftContract.connect(bob).burn(tokenId))
-      .to.revertedWith("ERC-6956: No permission to burn");
+      .to.revertedWith("ERC6956-E2");
 
       // Alice then burns, which shall be transaction to 0x0
       await expect(abnftContract.connect(alice).burn(tokenId))
@@ -247,7 +247,7 @@ describe("Authorization Map tests", function () {
 
       // Let mallory try to burn... should not work
       await expect(abnftContract.connect(mallory).burn(tokenId))
-      .to.revertedWith("ERC-6956: No permission to burn");
+      .to.revertedWith("ERC6956-E2");
 
       // Bob is approved, so bob can burn
       await expect(abnftContract.connect(bob).burn(tokenId))
@@ -266,7 +266,7 @@ describe("Authorization Map tests", function () {
 
       // Let mallory try to burn... should not work
       await expect(abnftContract.connect(mallory).burn(tokenId))
-      .to.revertedWith("ERC-6956: No permission to burn");
+      .to.revertedWith("ERC6956-E2");
 
       // Bob is approved, so bob can burn
       await expect(abnftContract.connect(maintainer).burn(tokenId))
@@ -286,7 +286,7 @@ describe("Authorization Map tests", function () {
 
       // Let mallory try to burn... should not work
       await expect(abnftContract.connect(mallory).burn(tokenId))
-      .to.revertedWith("ERC-6956: No permission to burn");
+      .to.revertedWith("ERC6956-E2");
 
       // Bob is approved, so bob can burn
       await expect(abnftContract.connect(bob).burn(tokenId))
@@ -301,7 +301,7 @@ describe("Authorization Map tests", function () {
 
       // Let mallory try to burn a token based on the creation anchor..
       await expect(abnftContract.connect(mallory)["burnAnchor(bytes)"](mintAttestationAlice))
-      .to.revertedWith("EIP-6956 Attestation already used");
+      .to.revertedWith("ERC6956-E9");
 
       // Now, using a fresh attestation, the same guy can burn
       await expect(abnftContract.connect(mallory)["burnAnchor(bytes)"](burnAttestation))
@@ -335,7 +335,7 @@ describe("Metadata tests", function () {
     const { abnftContract, maintainer, mallory } = await loadFixture(deployABTandMintTokenToAlice);      
 
     await expect(abnftContract.connect(mallory).updateBaseURI("http://test.xyz/"))
-    .to.revertedWith("ERC6956: Only maintainer allowed");
+    .to.revertedWith("ERC6956-E1");
 
     await abnftContract.connect(maintainer).updateBaseURI("http://test.xyz/");
     // FIXME event would be nice    

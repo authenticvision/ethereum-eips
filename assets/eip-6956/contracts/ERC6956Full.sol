@@ -14,6 +14,22 @@ import "./IERC6956AttestationLimited.sol";
 import "./IERC6956Floatable.sol";
 import "./IERC6956ValidAnchors.sol";
 
+/**
+ * @title 
+ * @author 
+ * @notice 
+ * 
+ * @dev Error-codes
+ * ERROR | Message
+ * ------|-------------------------------------------------------------------
+ * E1-20 | See ERC6956.sol
+ * E21   | No permission to start floating
+ * E22   | No permission to stop floating
+ * E23   | allowFloating can only be called when changing floating state
+ * E24   | No attested transfers left
+ * E25   | data must contain merkle-proof
+ * E26   | Anchor not valid
+ */
 contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, IERC6956ValidAnchors {
 
     uint8 private _canStartFloatingMap;
@@ -110,24 +126,24 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
      public 
      {        
         if(_doFloat) {
-            require(_roleBasedAuthorization(anchor, _canStartFloatingMap), "ERC-6956: No permission to start floating");
+            require(_roleBasedAuthorization(anchor, _canStartFloatingMap), "ERC6956-E21");
         } else {
-            require(_roleBasedAuthorization(anchor, _canStopFloatingMap), "ERC-6956: No permission to stop floating");
+            require(_roleBasedAuthorization(anchor, _canStopFloatingMap), "ERC6956-E22");
         }
 
-        require(_doFloat != isFloating(anchor), "EIP-6956: allowFloating can only be called when changing floating state");
+        require(_doFloat != isFloating(anchor), "ERC6956-E23");
         _allowFloating(anchor, _doFloat);        
     }
 
     function _beforeAttestationIsUsed(bytes32 anchor, address to, bytes memory data) internal view virtual override(ERC6956) {
         // empty, can be overwritten by derived conctracts.
-        require(attestationUsagesLeft(anchor) > 0, "ERC-6956: No attested transfers left");
+        require(attestationUsagesLeft(anchor) > 0, "ERC6956-E24");
 
         // IERC6956ValidAnchors check anchor is indeed valid in contract
-        require(data.length > 0, "ERC-6956: data must contain merkle-proof");
+        require(data.length > 0, "ERC6956-E25");
         bytes32[] memory proof;
         (proof) = abi.decode(data, (bytes32[])); // Decode it with potentially more data following. If there is more data, this may be passed on to safeTransfer
-        require(validAnchor(anchor, proof), "ERC-6956: Anchor not valid");
+        require(validAnchor(anchor, proof), "ERC6956-E26");
 
         super._beforeAttestationIsUsed(anchor, to, data);
     }

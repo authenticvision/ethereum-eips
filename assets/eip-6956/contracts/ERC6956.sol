@@ -15,6 +15,32 @@ import "./IERC6956.sol";
 
 // TODO RENAME TO ERC6956 once granted, then derived contracts can say 'is ERC6956', when the reference
 // implementation shall be used
+
+/**
+ * @title 
+ * @author 
+ * @notice 
+ * 
+ * @dev Error messages
+ * ```
+ * ERROR | Message
+ * ------|-------------------------------------------------------------------
+ * E1    | Only maintainer allowed
+ * E2    | No permission to burn
+ * E3    | Token does not exist, call transferAnchor first to mint
+ * E4    | batchSize must be 1
+ * E5    | Token not transferable
+ * E6    | Token already owned
+ * E7    | Not authorized
+ * E8    | Attestation not signed by trusted oracle
+ * E9    | Attestation already used
+ * E10   | Attestation not valid yet
+ * E11   | Attestation expired 
+ * E12   | Attestation expired (contract limit)
+ * E13   | Invalid signature length
+ * E14-20| Reserved for future use
+ * ```
+ */
 contract ERC6956 is
     ERC721,
     ERC721Enumerable,
@@ -58,7 +84,7 @@ contract ERC6956 is
     mapping(bytes32 => uint256) public attestationsUsedByAnchor;
 
     modifier onlyMaintainer() {
-        require(isMaintainer(msg.sender), "ERC6956: Only maintainer allowed");
+        require(isMaintainer(msg.sender), "ERC6956-E1");
         _;
     }
 
@@ -74,7 +100,7 @@ contract ERC6956 is
      {
         // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
         bytes32 anchor = anchorByToken[tokenId];
-        require(_roleBasedAuthorization(anchor, _burnAuthorizationMap), "ERC-6956: No permission to burn");
+        require(_roleBasedAuthorization(anchor, _burnAuthorizationMap), "ERC6956-E2");
 
         anchorIsReleased[anchor] = true; // burning means the anchor is certainly released
         _burnedTokensByAnchor[anchor] = tokenId;  
@@ -93,7 +119,7 @@ contract ERC6956 is
         bytes32 attestationHash;
         (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
         uint256 tokenId = tokenByAnchor[anchor];
-        require(tokenId>0, "ERC-6956 Token does not exist, call transferAnchor first to mint");
+        require(tokenId>0, "ERC6956-E3");
         // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
         _burnedTokensByAnchor[anchor] = tokenId;  
         anchorIsReleased[anchor] = true; // burning means the anchor is certainly released
@@ -114,7 +140,7 @@ contract ERC6956 is
         bytes32 anchor;
         bytes32 attestationHash;
         (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
-        require(tokenByAnchor[anchor]>0, "ERC-6956 Token does not exist, call transferAnchor first to mint");
+        require(tokenByAnchor[anchor]>0, "ERC6956-E3");
         super._approve(to, tokenByAnchor[anchor]);
         _commitAttestation(to, anchor, attestationHash);
     }
@@ -194,8 +220,8 @@ contract ERC6956 is
         internal view
         override(ERC721, ERC721Enumerable)
     {
-        require(batchSize == 1, "EIP-6956: batchSize must be 1");
-        require(anchorIsReleased[anchorByToken[tokenId]], "EIP-6956: Token not transferable");
+        require(batchSize == 1, "ERC6956-E4");
+        require(anchorIsReleased[anchorByToken[tokenId]], "ERC6956-E5");
     }
 
     /// @dev hook called after an anchor is minted
@@ -256,7 +282,7 @@ contract ERC6956 is
 
         if(fromToken > 0) {
             from = ownerOf(fromToken);
-            require(from != to, "ERC-6956: Token already owned");
+            require(from != to, "ERC6956-E6");
             bool releaseStateBefore = anchorIsReleased[anchor];
             anchorIsReleased[anchor] = true; // Attestation always temporarily releases the anchor        
             _safeTransfer(from, to, fromToken, "");
@@ -282,7 +308,7 @@ contract ERC6956 is
     }
 
     modifier authorized(ERC6956Role _role, uint8 _authMap) {
-        require(hasAuthorization(_role, _authMap), "ERC-6956 Not authorized");
+        require(hasAuthorization(_role, _authMap), "ERC6956-E7");
         _;
     }
 
@@ -324,14 +350,14 @@ contract ERC6956 is
         address signer = _extractSigner(messageHash, signature);
 
         // Check if from trusted oracle
-        require(isTrustedOracle(signer), "EIP-6956 Attestation not signed by trusted oracle");
-        require(_anchorByUsedAttestation[attestationHash] <= 0, "EIP-6956 Attestation already used");
+        require(isTrustedOracle(signer), "ERC6956-E8");
+        require(_anchorByUsedAttestation[attestationHash] <= 0, "ERC6956-E9");
 
         // Check expiry
         uint256 timestamp = block.timestamp;
-        require(timestamp > validStartTime, "ERC-6956 Attestation not valid yet");
-        require(attestationTime + maxAttestationExpireTime > block.timestamp, "ERC-6956 Attestation expired");
-        require(validEndTime > block.timestamp, "ERC-6956 Attestation no longer valid");
+        require(timestamp > validStartTime, "ERC6956-E10");
+        require(attestationTime + maxAttestationExpireTime > block.timestamp, "ERC6956-E11");
+        require(validEndTime > block.timestamp, "ERC6956-E112");
 
         
         // Calling hook!
@@ -467,7 +493,7 @@ contract ERC6956 is
     * @return The signer
     */
    function _extractSigner(bytes32 messageHash, bytes memory sig) internal pure returns (address) {
-        require(sig.length == 65, "Invalid signature length");
+        require(sig.length == 65, "ERC6956-E13");
         /*
         Signature is produced by signing a keccak256 hash with the following format:
         "\x19Ethereum Signed Message\n" + len(msg) + msg
