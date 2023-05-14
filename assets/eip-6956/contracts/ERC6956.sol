@@ -118,13 +118,13 @@ contract ERC6956 is
         bytes32 anchor;
         bytes32 attestationHash;
         (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
+        _commitAttestation(to, anchor, attestationHash);
         uint256 tokenId = tokenByAnchor[anchor];
         require(tokenId>0, "ERC6956-E3");
         // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
         _burnedTokensByAnchor[anchor] = tokenId;  
         anchorIsReleased[anchor] = true; // burning means the anchor is certainly released
         super._burn(tokenId);        
-        _commitAttestation(to, anchor, attestationHash);
         delete anchorByToken[tokenId];
         delete tokenByAnchor[anchor];
     }
@@ -140,9 +140,9 @@ contract ERC6956 is
         bytes32 anchor;
         bytes32 attestationHash;
         (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
+        _commitAttestation(to, anchor, attestationHash);
         require(tokenByAnchor[anchor]>0, "ERC6956-E3");
         super._approve(to, tokenByAnchor[anchor]);
-        _commitAttestation(to, anchor, attestationHash);
     }
 
     function approveAnchor(bytes memory attestation) public virtual {
@@ -276,6 +276,7 @@ contract ERC6956 is
     {        
         bytes32 attestationHash;
         (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
+        _commitAttestation(to, anchor, attestationHash); // commit already here, will be reverted in error case anyway
 
         uint256 fromToken = tokenByAnchor[anchor]; // tokenID, null if not exists
         address from = address(0); // owneraddress or 0x00, if not exists
@@ -291,8 +292,6 @@ contract ERC6956 is
             anchorIsReleased[anchor] = true; // Attestation always temporarily releases the anchor
             _safeMint(to, anchor);
         }
-        // You need to read it from memory, since it may have changed! 
-        _commitAttestation(to, anchor, attestationHash);
 
         return (anchor, to, tokenId);
     }
