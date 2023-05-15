@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./IERC6956.sol";
 
@@ -387,7 +388,7 @@ contract ERC6956 is
     /// @return tokenURI Returns the Uniform Resource Identifier (URI) for `tokenId` token.
     function tokenURI(uint256 tokenId) public view override returns (string memory) {        
         bytes32 anchor = anchorByToken[tokenId];
-        string memory anchorString = _toHex(anchor);
+        string memory anchorString = Strings.toHexString(uint256(anchor));
         return bytes(_baseURI()).length > 0 ? string(abi.encodePacked(_baseURI(), anchorString)) : "";
     }
 
@@ -433,40 +434,7 @@ contract ERC6956 is
             _burnAuthorizationMap = createAuthorizationMap(ERC6956Authorization.OWNER_AND_ASSET);
             _approveAuthorizationMap = createAuthorizationMap(ERC6956Authorization.OWNER_AND_ASSET);
     }
-    /*
-    * #################################################################################################################################
-    * ############################################################################################################### UTILS AND HELPERS
-    * #################################################################################################################################
-    */
-
-    /// Internal helper for toHex
-    /// @dev Credits to Mikhail Vladimirov, refer https://stackoverflow.com/questions/67893318/solidity-how-to-represent-bytes32-as-string for rationale
-    /// @param data 16 bytes of data to be converted to base32
-    function _toHex16 (bytes16 data) internal pure returns (bytes32 result) {
-        result = bytes32 (data) & 0xFFFFFFFFFFFFFFFF000000000000000000000000000000000000000000000000 |
-            (bytes32 (data) & 0x0000000000000000FFFFFFFFFFFFFFFF00000000000000000000000000000000) >> 64;
-        result = result & 0xFFFFFFFF000000000000000000000000FFFFFFFF000000000000000000000000 |
-            (result & 0x00000000FFFFFFFF000000000000000000000000FFFFFFFF0000000000000000) >> 32;
-        result = result & 0xFFFF000000000000FFFF000000000000FFFF000000000000FFFF000000000000 |
-            (result & 0x0000FFFF000000000000FFFF000000000000FFFF000000000000FFFF00000000) >> 16;
-        result = result & 0xFF000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000 |
-            (result & 0x00FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF0000) >> 8;
-        result = (result & 0xF000F000F000F000F000F000F000F000F000F000F000F000F000F000F000F000) >> 4 |
-            (result & 0x0F000F000F000F000F000F000F000F000F000F000F000F000F000F000F000F00) >> 8;
-        result = bytes32 (0x3030303030303030303030303030303030303030303030303030303030303030 +
-            uint256 (result) +
-            (uint256 (result) + 0x0606060606060606060606060606060606060606060606060606060606060606 >> 4 &
-            0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F) * 39); // Multiplier 39 is lower case, use multiplier 7 for upper-case,
-    }
-
-    /// @notice Converts bytes32 to String
-    /// @dev Credits to Mikhail Vladimirov, refer https://stackoverflow.com/questions/67893318/solidity-how-to-represent-bytes32-as-string
-    /// @param data data to be converted
-    /// @return Hex string in format 0x....
-    function _toHex (bytes32 data) internal pure returns (string memory) {
-        return string (abi.encodePacked ("0x", _toHex16 (bytes16 (data)), _toHex16 (bytes16 (data << 128))));
-    }
-
+  
     /*
      ########################## SIGNATURE MAGIC, 
      ########################## adapted from https://solidity-by-example.org/signature/
