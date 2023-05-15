@@ -102,14 +102,7 @@ contract ERC6956 is
         // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
         bytes32 anchor = anchorByToken[tokenId];
         require(_roleBasedAuthorization(anchor, _burnAuthorizationMap), "ERC6956-E2");
-
-        anchorIsReleased[anchor] = true; // burning means the anchor is certainly released
-        _burnedTokensByAnchor[anchor] = tokenId;  
-
-        super._burn(tokenId);
-        
-        delete anchorByToken[tokenId];
-        delete tokenByAnchor[anchor];
+        _burn(tokenId);
     }
 
     function burnAnchor(bytes memory attestation, bytes memory data) public virtual
@@ -121,20 +114,15 @@ contract ERC6956 is
         (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
         _commitAttestation(to, anchor, attestationHash);
         uint256 tokenId = tokenByAnchor[anchor];
-        require(tokenId>0, "ERC6956-E3");
         // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
-        _burnedTokensByAnchor[anchor] = tokenId;  
-        anchorIsReleased[anchor] = true; // burning means the anchor is certainly released
-        super._burn(tokenId);        
-        delete anchorByToken[tokenId];
-        delete tokenByAnchor[anchor];
+        _burn(tokenId);
     }
 
     function burnAnchor(bytes memory attestation) public virtual {
         return burnAnchor(attestation, "");
     }
 
-     function approveAnchor(bytes memory attestation, bytes memory data) public virtual 
+    function approveAnchor(bytes memory attestation, bytes memory data) public virtual 
         authorized(ERC6956Role.ASSET, _approveAuthorizationMap)
     {
         address to;
@@ -143,7 +131,7 @@ contract ERC6956 is
         (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
         _commitAttestation(to, anchor, attestationHash);
         require(tokenByAnchor[anchor]>0, "ERC6956-E3");
-        super._approve(to, tokenByAnchor[anchor]);
+        _approve(to, tokenByAnchor[anchor]);
     }
 
     function approveAnchor(bytes memory attestation) public virtual {
@@ -217,12 +205,26 @@ contract ERC6956 is
     function _beforeAttestationUse(bytes32 anchor, address to, bytes memory data) internal view virtual {}
     
 
-    function _beforeTokenTransfer(address /*from*/, address /*to*/, uint256 tokenId, uint256 batchSize)
-        internal virtual view
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
+        internal virtual
         override(ERC721, ERC721Enumerable)
     {
         require(batchSize == 1, "ERC6956-E4");
-        require(anchorIsReleased[anchorByToken[tokenId]], "ERC6956-E5");
+        bytes32 anchor = anchorByToken[tokenId];
+        emit AnchorTransfer(from, to, anchor, tokenId);
+
+        if(to == address(0)) {
+            // we are burning, ensure the mapping is deleted BEFORE the transfer
+            // to avoid reentrant-attacks
+            _burnedTokensByAnchor[anchor] = tokenId; // Remember tokenId for a potential re-mint
+            delete tokenByAnchor[anchor];
+            delete anchorByToken[tokenId]; 
+        }        
+        else {
+            require(anchorIsReleased[anchor], "ERC6956-E5");
+        }
+        
+
     }
 
     /// @dev hook called after an anchor is minted
@@ -363,10 +365,6 @@ contract ERC6956 is
         // Calling hook!
         _beforeAttestationUse(anchor, to, data);
         return(to,  anchor, attestationHash);
-    }
-
-    function _afterTokenTransfer(address from, address to, uint256 firstTokenId, uint256 /*batchSize*/) internal virtual override(ERC721) {
-        emit AnchorTransfer(from, to, anchorByToken[firstTokenId], firstTokenId);
     }
 
     function assertAttestation(bytes memory attestation, bytes memory data) 
