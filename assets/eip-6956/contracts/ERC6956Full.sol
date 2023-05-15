@@ -137,7 +137,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         require(data.length > 0, "ERC6956-E25");
         bytes32[] memory proof;
         (proof) = abi.decode(data, (bytes32[])); // Decode it with potentially more data following. If there is more data, this may be passed on to safeTransfer
-        require(validAnchor(anchor, proof), "ERC6956-E26");
+        require(_validAnchor(anchor, proof), "ERC6956-E26");
 
         super._beforeAttestationUse(anchor, to, data);
     }
@@ -152,7 +152,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         emit ValidAnchorsUpdate(merkleRootNode, msg.sender);
     }
 
-    function validAnchor(bytes32 anchor, bytes32[] memory proof) public view returns (bool) {
+    function _validAnchor(bytes32 anchor, bytes32[] memory proof) internal view returns (bool) {
         return MerkleProof.verify(
             proof,
             _validAnchorsMerkleRoot,
