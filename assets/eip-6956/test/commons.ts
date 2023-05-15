@@ -113,5 +113,5 @@ export const IERC6956ValidAnchorsInterfaceId = getInterfaceID(IERC6959ValidAncho
 
 export const IERC6956InterfaceId = '0xe3e216f4';
 export const IERC6956AttestationLimitedInterfaceId ='0xe3787865'
-export const IERC6956FloatableInterfaceId = '0x6d032bd5';
+export const IERC6956FloatableInterfaceId = '0xb050a772';
 export const IERC6956ValidAnchorsInterfaceId = '0x28a8f107';

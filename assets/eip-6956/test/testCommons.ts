@@ -42,3 +42,6 @@ export const NULLADDR = ethers.utils.getAddress('0x00000000000000000000000000000
     ['0x' + createHash('sha256').update('TestAnchor126').digest('hex')],
     ['0x' + createHash('sha256').update('TestAnchor127').digest('hex')]
     ]
+
+
+
