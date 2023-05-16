@@ -13,6 +13,8 @@ import "./ERC6956.sol";
 import "./IERC6956AttestationLimited.sol";
 import "./IERC6956Floatable.sol";
 import "./IERC6956ValidAnchors.sol";
+
+import "hardhat/console.sol";
 /**
  * @title 
  * @author 
@@ -41,10 +43,12 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
     /// ###############################################################################################################################
     
     mapping(bytes32 => uint256) public attestedTransferLimitByAnchor;
-    
+    mapping(bytes32 => FloatState) public floatingStateByAnchor;
+
     uint256 public globalAttestedTransferLimitByAnchor;
     AttestationLimitUpdatePolicy public transferLimitPolicy;
 
+    
     bool public allFloating;
 
     /// @dev The merkle-tree root node, where proof is validated against. Update via updateValidAnchors(). Use salt-leafs in merkle-trees!
@@ -107,28 +111,49 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         emit FloatingAllStateChange(doFloatAll, msg.sender);
     }
 
-    function _allowFloating(bytes32 anchor, bool _doFloat) internal {
-        anchorIsReleased[anchor] = _doFloat;
-        emit FloatingStateChange(anchor, tokenByAnchor[anchor], _doFloat, msg.sender);
-    }
-
     function _afterAnchorMint(address /*to*/, bytes32 anchor, uint256 /*tokenId*/) internal override(ERC6956) virtual {
         // The floating state of each token needs to be announced
         emit FloatingStateChange(anchor, tokenByAnchor[anchor], floating(anchor), msg.sender);      
     }
 
-    function float(bytes32 anchor, bool _doFloat) public 
-     {        
-        if(_doFloat) {
+    function _floating(bool defaultFloatState, FloatState anchorFloatState) internal pure returns (bool floats) {
+        if(anchorFloatState == FloatState.Default) {
+            return defaultFloatState;
+        }
+        return anchorFloatState == FloatState.Floating; 
+    }
+
+    function float(bytes32 anchor, FloatState newFloatState) public 
+    {
+        bool currentFloatState = floating(anchor);
+        bool willFloat = _floating(allFloating, newFloatState);
+
+        require(willFloat != currentFloatState, "ERC6956-E23");
+
+        if(willFloat) {
             require(_roleBasedAuthorization(anchor, _canStartFloatingMap), "ERC6956-E21");
         } else {
             require(_roleBasedAuthorization(anchor, _canStopFloatingMap), "ERC6956-E22");
         }
 
-        require(_doFloat != floating(anchor), "ERC6956-E23");
-        _allowFloating(anchor, _doFloat);        
+        floatingStateByAnchor[anchor] = newFloatState;
+        emit FloatingStateChange(anchor, tokenByAnchor[anchor], willFloat, msg.sender);
     }
 
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
+        internal virtual
+        override(ERC6956)  {
+            bytes32 anchor = anchorByToken[tokenId];
+
+            if(floating(anchor)) {
+                bool before = anchorIsReleased[anchor];
+                anchorIsReleased[anchor] = true;
+                super._beforeTokenTransfer(from, to, tokenId, batchSize);
+                anchorIsReleased[anchor] = before;                
+            } else {
+                super._beforeTokenTransfer(from, to, tokenId, batchSize);
+            }
+        }
     function _beforeAttestationUse(bytes32 anchor, address to, bytes memory data) internal view virtual override(ERC6956) {
         // empty, can be overwritten by derived conctracts.
         require(attestationUsagesLeft(anchor) > 0, "ERC6956-E24");
@@ -160,7 +185,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
     }
 
     function floating(bytes32 anchor) public view returns (bool){
-        return anchorIsReleased[anchor] || allFloating;
+        return _floating(allFloating, floatingStateByAnchor[anchor]);
     }    
 
     constructor(

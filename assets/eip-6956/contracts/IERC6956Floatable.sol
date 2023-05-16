@@ -7,15 +7,15 @@ import "./IERC6956.sol";
 interface IERC6956Floatable is IERC6956 {
 
     enum FloatState {
-        Default, // 0
+        Default, // 0, inherits from floatAll
         Floating, // 1
         Anchored // 2
     }
 
     function updateFloatingAuthorization(Authorization startFloatingAuthorization, Authorization stopFloatingAuthorization) external;
 
-    function float(bytes32 anchor, bool _doFloat) external;
-    function floatAll(bool allFloating) external;
+    function float(bytes32 anchor, FloatState newState) external;
+    function floatAll(bool allFloating) external; // true ... FloatState.Floating, false ... FloatState.Anchored
 
     function floating(bytes32 anchor) external view returns (bool);
 

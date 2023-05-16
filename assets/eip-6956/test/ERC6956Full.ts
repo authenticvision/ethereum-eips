@@ -7,6 +7,13 @@ import { float } from "hardhat/internal/core/params/argumentTypes";
 import { ERC6956Authorization, merkleTestAnchors, NULLADDR, AttestedTransferLimitUpdatePolicy, invalidAnchor, createAttestationWithData} from "./commons";
 import { IERC6956AttestationLimitedInterfaceId, IERC6956InterfaceId, IERC6956FloatableInterfaceId, IERC6956ValidAnchorsInterfaceId} from "./commons";
 
+export enum FloatState {
+  Default, // 0, inherits from floatAll
+  Floating, // 1
+  Anchored // 2
+}
+
+
 
 describe("ERC6956: Asset-Bound NFT --- Full", function () {
   // Fixture to deploy the abnftContract contract and assigne roles.
@@ -118,7 +125,7 @@ describe("Anchor-Floating", function () {
     .to.be.equal(false); // one was used to mint
 
     // Now alice, as the owner decides to make it explicitely floatable
-    expect(await abnftContract.connect(alice).float(anchor, true))
+    expect(await abnftContract.connect(alice).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
     .withArgs(anchor, 1, true, alice.address)
 
@@ -178,14 +185,14 @@ describe("Anchor-Floating", function () {
     .to.emit(abnftContract, "FloatingAuthorizationChange")
     .withArgs(ERC6956Authorization.ASSET_AND_ISSUER, ERC6956Authorization.ASSET_AND_ISSUER, maintainer.address);
 
-    await expect(abnftContract.connect(alice).float(anchor, true))
+    await expect(abnftContract.connect(alice).float(anchor, FloatState.Floating))
     .to.revertedWith("ERC6956-E21")
 
     await expect(abnftContract.connect(maintainer).updateFloatingAuthorization(ERC6956Authorization.OWNER_AND_ASSET, ERC6956Authorization.OWNER_AND_ASSET))
     .to.emit(abnftContract, "FloatingAuthorizationChange")
     .withArgs(ERC6956Authorization.OWNER_AND_ASSET, ERC6956Authorization.OWNER_AND_ASSET, maintainer.address);
 
-    await expect(abnftContract.connect(alice).float(anchor, true))
+    await expect(abnftContract.connect(alice).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
     .withArgs(anchor, tokenId, true, alice.address);
   });
@@ -198,7 +205,7 @@ describe("Anchor-Floating", function () {
     .to.emit(abnftContract, "FloatingAuthorizationChange")
     .withArgs(ERC6956Authorization.OWNER_AND_ASSET, ERC6956Authorization.OWNER_AND_ASSET, maintainer.address);
 
-    await expect(abnftContract.connect(alice).float(anchor, true))
+    await expect(abnftContract.connect(alice).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
     .withArgs(anchor, tokenId, true, alice.address);
 
@@ -210,6 +217,33 @@ describe("Anchor-Floating", function () {
     .withArgs(alice.address,bob.address, tokenId);
   });
 
+  it("SHOULDN'T allow owner to transfer token when explicitely marked anchored", async function () {
+    const { abnftContract, anchor, maintainer, alice, bob, mallory } = await loadFixture(deployAbNftAndMintTokenToAliceFixture);
+    const tokenId = await abnftContract.tokenByAnchor(anchor);
+
+    await expect(abnftContract.connect(maintainer).updateFloatingAuthorization(ERC6956Authorization.ISSUER, ERC6956Authorization.ISSUER))
+    .to.emit(abnftContract, "FloatingAuthorizationChange")
+    .withArgs(ERC6956Authorization.ISSUER, ERC6956Authorization.ISSUER, maintainer.address);
+
+     // Maintainer must be able to update
+     await expect(abnftContract.connect(maintainer).floatAll(true))
+     .to.emit(abnftContract, "FloatingAllStateChange")
+     .withArgs(true, maintainer.address);
+
+     expect(await abnftContract.floating(anchor))
+     .to.be.equal(true); // one was used to mint
+
+     await expect(abnftContract.connect(maintainer).float(anchor, FloatState.Anchored))
+     .to.emit(abnftContract, "FloatingStateChange")
+     .withArgs(anchor, tokenId, false, maintainer.address);
+
+     expect(await abnftContract.floating(anchor))
+     .to.be.equal(false); // one was used to mint
+
+    await expect(abnftContract.connect(alice).transferFrom(alice.address, bob.address, tokenId))
+    .to.revertedWith("ERC6956-E5")
+  });
+
 
   it("SHOULD allow maintainer to float ANY token only when ISSUER is allowed", async function () {
     const { abnftContract, anchor, maintainer, mallory } = await loadFixture(deployAbNftAndMintTokenToAliceFixture);
@@ -219,14 +253,14 @@ describe("Anchor-Floating", function () {
     .to.emit(abnftContract, "FloatingAuthorizationChange")
     .withArgs(ERC6956Authorization.OWNER_AND_ASSET, ERC6956Authorization.OWNER_AND_ASSET, maintainer.address);
 
-    await expect(abnftContract.connect(maintainer).float(anchor, true))
+    await expect(abnftContract.connect(maintainer).float(anchor, FloatState.Floating))
     .to.revertedWith("ERC6956-E21")
 
     await expect(abnftContract.connect(maintainer).updateFloatingAuthorization(ERC6956Authorization.ISSUER, ERC6956Authorization.ISSUER))
     .to.emit(abnftContract, "FloatingAuthorizationChange")
     .withArgs(ERC6956Authorization.ISSUER, ERC6956Authorization.ISSUER, maintainer.address);
 
-    await expect(abnftContract.connect(maintainer).float(anchor, true))
+    await expect(abnftContract.connect(maintainer).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
     .withArgs(anchor, tokenId, true, maintainer.address);
   });
@@ -243,7 +277,7 @@ describe("Anchor-Floating", function () {
     .to.emit(abnftContract, "FloatingAuthorizationChange")
     .withArgs(ERC6956Authorization.OWNER, ERC6956Authorization.OWNER, maintainer.address);
 
-    await expect(abnftContract.connect(maintainer).float(anchor, true))
+    await expect(abnftContract.connect(maintainer).float(anchor, FloatState.Floating))
     .to.revertedWith("ERC6956-E21")
     
     const [attestationMaintainer, dataMaintainer] = await createAttestationWithData(maintainer.address, anchor, oracle, merkleTree); 
@@ -252,7 +286,7 @@ describe("Anchor-Floating", function () {
     .withArgs(alice.address, maintainer.address, tokenId)
            
     // Now maintainer owns the token, hence he is owner and can indeed change floating
-    await expect(abnftContract.connect(maintainer).float(anchor, true))
+    await expect(abnftContract.connect(maintainer).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
     .withArgs(anchor, tokenId, true, maintainer.address);
 
@@ -279,7 +313,7 @@ describe("Anchor-Floating", function () {
     .to.revertedWith("ERC721: caller is not token owner or approved");
 
     // Bob makes it floatable (which is possible, because he is approved)
-    await expect(abnftContract.connect(bob).float(anchor, true))
+    await expect(abnftContract.connect(bob).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
     .withArgs(anchor, tokenId, true, bob.address);
     

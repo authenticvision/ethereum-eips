@@ -223,9 +223,7 @@ contract ERC6956 is
         else {
             require(anchorIsReleased[anchor], "ERC6956-E5");
         }
-        
-
-    }
+   }
 
     /// @dev hook called after an anchor is minted
     function _afterAnchorMint(address to, bytes32 anchor, uint256 tokenId) internal virtual {}
