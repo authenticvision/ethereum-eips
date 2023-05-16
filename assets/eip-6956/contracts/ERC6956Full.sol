@@ -94,7 +94,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
     /// ##############################################################################################  FLOATABILITY
     /// ###############################################################################################################################
     
-    function updateFloatingAuthorization(ERC6956Authorization startAuthorization, ERC6956Authorization stopAuthorization) public
+    function updateFloatingAuthorization(Authorization startAuthorization, Authorization stopAuthorization) public
         onlyMaintainer() {
             _canStartFloatingMap = createAuthorizationMap(startAuthorization);
             _canStopFloatingMap = createAuthorizationMap(stopAuthorization);

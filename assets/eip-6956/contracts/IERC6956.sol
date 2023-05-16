@@ -11,7 +11,7 @@ pragma solidity ^0.8.18;
 interface IERC6956 {
     /// Used for several authorization mechansims, e.g. who can burn, who can set approval, ... 
     /// @dev Specifying the role in the ecosystem. Used in conjunction with ERC6956Authorization
-    enum ERC6956Role {
+    enum Role {
         OWNER,  // =0, The owner of the digital token
         ISSUER, // =1, The issuer (contract) of the tokens, typically represented through a MAINTAINER_ROLE, the contract owner etc.
         ASSET,  // =2, The asset identified by the anchor
@@ -21,7 +21,7 @@ interface IERC6956 {
     /// @dev Authorization, typically mapped to authorizationMaps, where each bit indicates whether a particular ERC6956Role is authorized 
     ///      Typically used in constructor (hardcoded or params) to set burnAuthorization and approveAuthorization
     ///      Also used in optional updateBurnAuthorization, updateApproveAuthorization 
-    enum ERC6956Authorization {
+    enum Authorization {
         NONE,               // = 0,      // None of the above
         OWNER,              // = (1<<OWNER), // The owner of the token, i.e. the digital representation
         ISSUER,             // = (1<<ISSUER), // The issuer of the tokens, i.e. this smart contract

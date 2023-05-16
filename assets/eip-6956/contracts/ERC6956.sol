@@ -106,7 +106,7 @@ contract ERC6956 is
     }
 
     function burnAnchor(bytes memory attestation, bytes memory data) public virtual
-        authorized(ERC6956Role.ASSET, _burnAuthorizationMap)
+        authorized(Role.ASSET, _burnAuthorizationMap)
      {
         address to;
         bytes32 anchor;
@@ -123,7 +123,7 @@ contract ERC6956 is
     }
 
     function approveAnchor(bytes memory attestation, bytes memory data) public virtual 
-        authorized(ERC6956Role.ASSET, _approveAuthorizationMap)
+        authorized(Role.ASSET, _approveAuthorizationMap)
     {
         address to;
         bytes32 anchor;
@@ -158,27 +158,27 @@ contract ERC6956 is
     } 
       
 
-    function createAuthorizationMap(ERC6956Authorization _auth) public pure returns (uint8)  {
+    function createAuthorizationMap(Authorization _auth) public pure returns (uint8)  {
        uint8 authMap = 0;
-       if(_auth == ERC6956Authorization.OWNER 
-            || _auth == ERC6956Authorization.OWNER_AND_ASSET 
-            || _auth == ERC6956Authorization.OWNER_AND_ISSUER 
-            || _auth == ERC6956Authorization.ALL) {
-        authMap |= uint8(1<<uint8(ERC6956Role.OWNER));
+       if(_auth == Authorization.OWNER 
+            || _auth == Authorization.OWNER_AND_ASSET 
+            || _auth == Authorization.OWNER_AND_ISSUER 
+            || _auth == Authorization.ALL) {
+        authMap |= uint8(1<<uint8(Role.OWNER));
        } 
        
-       if(_auth == ERC6956Authorization.ISSUER 
-            || _auth == ERC6956Authorization.ASSET_AND_ISSUER 
-            || _auth == ERC6956Authorization.OWNER_AND_ISSUER 
-            || _auth == ERC6956Authorization.ALL) {
-        authMap |= uint8(1<<uint8(ERC6956Role.ISSUER));
+       if(_auth == Authorization.ISSUER 
+            || _auth == Authorization.ASSET_AND_ISSUER 
+            || _auth == Authorization.OWNER_AND_ISSUER 
+            || _auth == Authorization.ALL) {
+        authMap |= uint8(1<<uint8(Role.ISSUER));
        }
 
-       if(_auth == ERC6956Authorization.ASSET 
-            || _auth == ERC6956Authorization.ASSET_AND_ISSUER 
-            || _auth == ERC6956Authorization.OWNER_AND_ASSET 
-            || _auth == ERC6956Authorization.ALL) {
-        authMap |= uint8(1<<uint8(ERC6956Role.ASSET));
+       if(_auth == Authorization.ASSET 
+            || _auth == Authorization.ASSET_AND_ISSUER 
+            || _auth == Authorization.OWNER_AND_ASSET 
+            || _auth == Authorization.ALL) {
+        authMap |= uint8(1<<uint8(Role.ASSET));
        }
 
        return authMap;
@@ -186,15 +186,15 @@ contract ERC6956 is
 
     function _roleBasedAuthorization(bytes32 anchor, uint8 authorizationMap) internal view returns (bool) {
         uint256 tokenId = tokenByAnchor[anchor];        
-        ERC6956Role myRole = ERC6956Role.INVALID;
-        ERC6956Role alternateRole = ERC6956Role.INVALID;
+        Role myRole = Role.INVALID;
+        Role alternateRole = Role.INVALID;
         
         if(_isApprovedOrOwner(_msgSender(), tokenId)) {
-            myRole = ERC6956Role.OWNER;
+            myRole = Role.OWNER;
         }
 
         if(isMaintainer(msg.sender)) {
-            alternateRole = ERC6956Role.ISSUER;
+            alternateRole = Role.ISSUER;
         }
 
         return hasAuthorization(myRole, authorizationMap) 
@@ -304,12 +304,12 @@ contract ERC6956 is
     }
     
 
-    function hasAuthorization(ERC6956Role _role, uint8 _auth ) public pure returns (bool) {
+    function hasAuthorization(Role _role, uint8 _auth ) public pure returns (bool) {
         uint8 result = uint8(_auth & (1 << uint8(_role)));
         return result > 0;
     }
 
-    modifier authorized(ERC6956Role _role, uint8 _authMap) {
+    modifier authorized(Role _role, uint8 _authMap) {
         require(hasAuthorization(_role, _authMap), "ERC6956-E7");
         _;
     }
@@ -405,17 +405,17 @@ contract ERC6956 is
     function updateBaseURI(string calldata tokenBaseURI) public onlyMaintainer() {
         _baseUri = tokenBaseURI;
     }
-    event BurnAuthorizationChange(ERC6956Authorization burnAuth, address indexed maintainer);
+    event BurnAuthorizationChange(Authorization burnAuth, address indexed maintainer);
 
-    function updateBurnAuthorization(ERC6956Authorization _burnAuth) public onlyMaintainer() {
+    function updateBurnAuthorization(Authorization _burnAuth) public onlyMaintainer() {
         _burnAuthorizationMap = createAuthorizationMap(_burnAuth);
         emit BurnAuthorizationChange(_burnAuth, msg.sender);
         // TODO event
     }
     
-    event ApproveAuthorizationChange(ERC6956Authorization approveAuth, address indexed maintainer);
+    event ApproveAuthorizationChange(Authorization approveAuth, address indexed maintainer);
 
-    function updateApproveAuthorization(ERC6956Authorization _approveAuth) public onlyMaintainer() {
+    function updateApproveAuthorization(Authorization _approveAuth) public onlyMaintainer() {
         _approveAuthorizationMap = createAuthorizationMap(_approveAuth);
         emit ApproveAuthorizationChange(_approveAuth, msg.sender);
 
@@ -429,8 +429,8 @@ contract ERC6956 is
 
             // OWNER and ASSET shall normally be in sync anyway, so this is reasonable default 
             // authorization for approve and burn, as it mimicks ERC-721 behavior
-            _burnAuthorizationMap = createAuthorizationMap(ERC6956Authorization.OWNER_AND_ASSET);
-            _approveAuthorizationMap = createAuthorizationMap(ERC6956Authorization.OWNER_AND_ASSET);
+            _burnAuthorizationMap = createAuthorizationMap(Authorization.OWNER_AND_ASSET);
+            _approveAuthorizationMap = createAuthorizationMap(Authorization.OWNER_AND_ASSET);
     }
   
     /*
