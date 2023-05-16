@@ -42,7 +42,6 @@ interface IERC6956 {
     function tokenByAnchor(bytes32 anchor) external view returns (uint256 tokenId);
     function attestationsUsedByAnchor(bytes32 anchor) external view returns (uint256 usageCount);
     function decodeAttestationIfValid(bytes memory attestation, bytes memory data) external view returns (address to, bytes32 anchor, bytes32 attestationHash);
-    function anchorIsReleased(bytes32 anchor) external view returns (bool isReleased);
 
 
     /**

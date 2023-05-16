@@ -50,7 +50,7 @@ contract ERC6956 is
 {
     using Counters for Counters.Counter;
 
-    mapping(bytes32 => bool) public anchorIsReleased; // currently released anchors. Per default, all anchors are dropped, i.e. 1:1 bound
+    mapping(bytes32 => bool) internal _anchorIsReleased; // currently released anchors. Per default, all anchors are dropped, i.e. 1:1 bound
     
     mapping(address => bool) public maintainers;
 
@@ -63,7 +63,6 @@ contract ERC6956 is
     mapping(address => bool) private _trustedOracles;
 
     /// @dev stores the anchors for each attestation
-    // TODO the anchor is not really used.. can we save on gas if we store just an uint8?
     mapping(bytes32 => bytes32) private _anchorByUsedAttestation;
 
     /// @dev stores handed-back tokens (via burn)
@@ -78,8 +77,8 @@ contract ERC6956 is
     /// @dev Default validity timespan of attestation. In validateAttestation the attestationTime is checked for MIN(defaultAttestationvalidity, attestation.expiry)
     uint256 public maxAttestationExpireTime = 5*60; // 5min valid per default
 
-    uint8 private _burnAuthorizationMap;
-    uint8 private _approveAuthorizationMap;
+    uint256 private _burnAuthorizationMap;
+    uint256 private _approveAuthorizationMap;
 
 /// @dev Records the number of transfers done for each attestation
     mapping(bytes32 => uint256) public attestationsUsedByAnchor;
@@ -158,33 +157,33 @@ contract ERC6956 is
     } 
       
 
-    function createAuthorizationMap(Authorization _auth) public pure returns (uint8)  {
-       uint8 authMap = 0;
+    function createAuthorizationMap(Authorization _auth) public pure returns (uint256)  {
+       uint256 authMap = 0;
        if(_auth == Authorization.OWNER 
             || _auth == Authorization.OWNER_AND_ASSET 
             || _auth == Authorization.OWNER_AND_ISSUER 
             || _auth == Authorization.ALL) {
-        authMap |= uint8(1<<uint8(Role.OWNER));
+        authMap |= uint256(1<<uint256(Role.OWNER));
        } 
        
        if(_auth == Authorization.ISSUER 
             || _auth == Authorization.ASSET_AND_ISSUER 
             || _auth == Authorization.OWNER_AND_ISSUER 
             || _auth == Authorization.ALL) {
-        authMap |= uint8(1<<uint8(Role.ISSUER));
+        authMap |= uint256(1<<uint256(Role.ISSUER));
        }
 
        if(_auth == Authorization.ASSET 
             || _auth == Authorization.ASSET_AND_ISSUER 
             || _auth == Authorization.OWNER_AND_ASSET 
             || _auth == Authorization.ALL) {
-        authMap |= uint8(1<<uint8(Role.ASSET));
+        authMap |= uint256(1<<uint256(Role.ASSET));
        }
 
        return authMap;
     }
 
-    function _roleBasedAuthorization(bytes32 anchor, uint8 authorizationMap) internal view returns (bool) {
+    function _roleBasedAuthorization(bytes32 anchor, uint256 authorizationMap) internal view returns (bool) {
         uint256 tokenId = tokenByAnchor[anchor];        
         Role myRole = Role.INVALID;
         Role alternateRole = Role.INVALID;
@@ -221,8 +220,10 @@ contract ERC6956 is
             delete anchorByToken[tokenId]; 
         }        
         else {
-            require(anchorIsReleased[anchor], "ERC6956-E5");
+            require(_anchorIsReleased[anchor], "ERC6956-E5");
         }
+
+        delete _anchorIsReleased[anchor]; // make sure anchor is non-released after the transfer again
    }
 
     /// @dev hook called after an anchor is minted
@@ -259,9 +260,6 @@ contract ERC6956 is
         tokenByAnchor[anchor] = tokenId;
         super._safeMint(to, tokenId);
 
-        // After minting, the anchor is guaranteed to be dropped.
-        // Needs to be explicitely set due to the burn() mechanism, where tokenIds are re-used.
-        delete anchorIsReleased[anchor]; 
         _afterAnchorMint(to, anchor, tokenId);
     }
 
@@ -281,16 +279,14 @@ contract ERC6956 is
 
         uint256 fromToken = tokenByAnchor[anchor]; // tokenID, null if not exists
         address from = address(0); // owneraddress or 0x00, if not exists
+        
+        _anchorIsReleased[anchor] = true; // Attestation always temporarily releases the anchor       
 
         if(fromToken > 0) {
             from = ownerOf(fromToken);
             require(from != to, "ERC6956-E6");
-            bool releaseStateBefore = anchorIsReleased[anchor];
-            anchorIsReleased[anchor] = true; // Attestation always temporarily releases the anchor        
             _safeTransfer(from, to, fromToken, "");
-            anchorIsReleased[anchor] = releaseStateBefore;
         } else {
-            anchorIsReleased[anchor] = true; // Attestation always temporarily releases the anchor
             _safeMint(to, anchor);
         }
 
@@ -302,12 +298,12 @@ contract ERC6956 is
     }
     
 
-    function hasAuthorization(Role _role, uint8 _auth ) public pure returns (bool) {
-        uint8 result = uint8(_auth & (1 << uint8(_role)));
+    function hasAuthorization(Role _role, uint256 _auth ) public pure returns (bool) {
+        uint256 result = uint256(_auth & (1 << uint256(_role)));
         return result > 0;
     }
 
-    modifier authorized(Role _role, uint8 _authMap) {
+    modifier authorized(Role _role, uint256 _authMap) {
         require(hasAuthorization(_role, _authMap), "ERC6956-E7");
         _;
     }

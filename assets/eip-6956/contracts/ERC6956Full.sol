@@ -14,7 +14,6 @@ import "./IERC6956AttestationLimited.sol";
 import "./IERC6956Floatable.sol";
 import "./IERC6956ValidAnchors.sol";
 
-import "hardhat/console.sol";
 /**
  * @title 
  * @author 
@@ -34,8 +33,8 @@ import "hardhat/console.sol";
  */
 contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, IERC6956ValidAnchors {
 
-    uint8 private _canStartFloatingMap;
-    uint8 private _canStopFloatingMap;
+    uint256 private _canStartFloatingMap;
+    uint256 private _canStopFloatingMap;
 
 
     /// ###############################################################################################################################
@@ -144,15 +143,15 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         internal virtual
         override(ERC6956)  {
             bytes32 anchor = anchorByToken[tokenId];
-
-            if(floating(anchor)) {
-                bool before = anchorIsReleased[anchor];
-                anchorIsReleased[anchor] = true;
-                super._beforeTokenTransfer(from, to, tokenId, batchSize);
-                anchorIsReleased[anchor] = before;                
-            } else {
-                super._beforeTokenTransfer(from, to, tokenId, batchSize);
+                    
+            if(!_anchorIsReleased[anchor]) {
+                // Only write when not already released - this saves gas, as memory-write is quite expensive compared to IF
+                if(floating(anchor)) {
+                    _anchorIsReleased[anchor] = true; // FIXME OPTIMIZATION, we do not need 
+                }
             }
+             
+            super._beforeTokenTransfer(from, to, tokenId, batchSize);
         }
     function _beforeAttestationUse(bytes32 anchor, address to, bytes memory data) internal view virtual override(ERC6956) {
         // empty, can be overwritten by derived conctracts.
