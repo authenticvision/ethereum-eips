@@ -21,11 +21,9 @@ enum Role {
     INVALID // =3, Reserved, do not use.
 }
 
-
 /**
- * @title 
- * @author 
- * @notice 
+ * @title ASSET-BOUND NFT minimal reference implementation 
+ * @author Thomas Bergmueller (@tbergmueller)
  * 
  * @dev Error messages
  * ```

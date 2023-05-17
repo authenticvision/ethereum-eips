@@ -34,8 +34,6 @@ describe("ERC6956: Asset-Bound NFT --- Full", function () {
     await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](mintAttestationAlice, dataAlice))
     .to.emit(abnftContract, "Transfer") // Standard ERC721 event
     .withArgs(NULLADDR, alice.address, expectedTokenId)
-    .to.emit(abnftContract, "FloatingStateChange") // floating state needs to be announced for each anchor implementing IERC6956Floatable
-    .withArgs(anchor, expectedTokenId, false, gasProvider.address);
 
     return { abnftContract, merkleTree, owner, maintainer, oracle, mintAttestationAlice, anchor, alice, bob, mallory, hacker, carl, gasProvider };
   }
@@ -125,7 +123,7 @@ describe("Anchor-Floating", function () {
     // Now alice, as the owner decides to make it explicitely floatable
     expect(await abnftContract.connect(alice).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
-    .withArgs(anchor, 1, true, alice.address)
+    .withArgs(anchor, 1, FloatState.Floating, alice.address)
 
     // It is now explicitely floatable
     expect(await abnftContract.floating(anchor))
@@ -150,8 +148,6 @@ describe("Anchor-Floating", function () {
     await expect(abnftContract.connect(gasProvider)["transferAnchor(bytes,bytes)"](mintToBobAttestation, mintToBobData))
     .to.emit(abnftContract, "Transfer")
     .withArgs(NULLADDR, bob.address, expectedTokenId)
-    .to.emit(abnftContract, "FloatingStateChange")
-    .withArgs(implicitFloatingAnchor, expectedTokenId, true, gasProvider.address); // Floating is true, because all are floating .. 
 
     // FLOATING ALL, so both have to float
     expect(await abnftContract.floating(anchor))
@@ -192,7 +188,7 @@ describe("Anchor-Floating", function () {
 
     await expect(abnftContract.connect(alice).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
-    .withArgs(anchor, tokenId, true, alice.address);
+    .withArgs(anchor, tokenId, FloatState.Floating, alice.address);
   });
 
   it("SHOULD only allow owner to transfer token when floating", async function () {
@@ -205,7 +201,7 @@ describe("Anchor-Floating", function () {
 
     await expect(abnftContract.connect(alice).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
-    .withArgs(anchor, tokenId, true, alice.address);
+    .withArgs(anchor, tokenId, FloatState.Floating, alice.address);
 
     await expect(abnftContract.connect(mallory).transferFrom(alice.address, mallory.address, tokenId))
     .to.revertedWith("ERC721: caller is not token owner or approved");
@@ -233,7 +229,7 @@ describe("Anchor-Floating", function () {
 
      await expect(abnftContract.connect(maintainer).float(anchor, FloatState.Anchored))
      .to.emit(abnftContract, "FloatingStateChange")
-     .withArgs(anchor, tokenId, false, maintainer.address);
+     .withArgs(anchor, tokenId, FloatState.Anchored, maintainer.address);
 
      expect(await abnftContract.floating(anchor))
      .to.be.equal(false); // one was used to mint
@@ -260,7 +256,7 @@ describe("Anchor-Floating", function () {
 
     await expect(abnftContract.connect(maintainer).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
-    .withArgs(anchor, tokenId, true, maintainer.address);
+    .withArgs(anchor, tokenId, FloatState.Floating, maintainer.address);
   });
 
   it("SHOULD allow maintainer to float HIS OWN token when OWNER is allowed", async function () {
@@ -286,7 +282,7 @@ describe("Anchor-Floating", function () {
     // Now maintainer owns the token, hence he is owner and can indeed change floating
     await expect(abnftContract.connect(maintainer).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
-    .withArgs(anchor, tokenId, true, maintainer.address);
+    .withArgs(anchor, tokenId, FloatState.Floating, maintainer.address);
 
     expect(await abnftContract.floating(anchor))
     .to.be.equal(true); // one was used to mint
@@ -313,7 +309,7 @@ describe("Anchor-Floating", function () {
     // Bob makes it floatable (which is possible, because he is approved)
     await expect(abnftContract.connect(bob).float(anchor, FloatState.Floating))
     .to.emit(abnftContract, "FloatingStateChange")
-    .withArgs(anchor, tokenId, true, bob.address);
+    .withArgs(anchor, tokenId, FloatState.Floating, bob.address);
     
     // Bob transfers it...
     await expect(abnftContract.connect(bob).transferFrom(alice.address, carl.address, tokenId))

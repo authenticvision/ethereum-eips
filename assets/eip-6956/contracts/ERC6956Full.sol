@@ -15,9 +15,9 @@ import "./IERC6956Floatable.sol";
 import "./IERC6956ValidAnchors.sol";
 
 /**
- * @title 
- * @author 
- * @notice 
+ * @title ASSET-BOUND NFT implementation with all interfaces
+ * @author Thomas Bergmueller (@tbergmueller)
+ * @notice Extends ERC6956.sol with additional interfaces and functionality
  * 
  * @dev Error-codes
  * ERROR | Message
@@ -43,7 +43,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
     mapping(bytes32 => FloatState) public floatingStateByAnchor;
 
     uint256 public globalAttestedTransferLimitByAnchor;
-    AttestationLimitUpdatePolicy public transferLimitPolicy;
+    AttestationLimitPolicy public attestationLimitPolicy;
 
     bool public allFloating;
 
@@ -52,9 +52,9 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
 
     function _requireValidLimitUpdate(uint256 oldValue, uint256 newValue) internal view {
         if(newValue > oldValue) {
-            require(transferLimitPolicy == AttestationLimitUpdatePolicy.FLEXIBLE || transferLimitPolicy == AttestationLimitUpdatePolicy.INCREASE_ONLY, "ERC6956-E27");
+            require(attestationLimitPolicy == AttestationLimitPolicy.FLEXIBLE || attestationLimitPolicy == AttestationLimitPolicy.INCREASE_ONLY, "ERC6956-E27");
         } else {
-            require(transferLimitPolicy == AttestationLimitUpdatePolicy.FLEXIBLE || transferLimitPolicy == AttestationLimitUpdatePolicy.DECREASE_ONLY, "ERC6956-E27");
+            require(attestationLimitPolicy == AttestationLimitPolicy.FLEXIBLE || attestationLimitPolicy == AttestationLimitPolicy.DECREASE_ONLY, "ERC6956-E27");
         }
     }
 
@@ -71,13 +71,13 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         public 
         onlyMaintainer() 
     {
-       uint256 currentLimit = attestedTransferLimit(anchor);
+       uint256 currentLimit = attestationLimit(anchor);
        _requireValidLimitUpdate(currentLimit, _nrTransfers);
        attestedTransferLimitByAnchor[anchor] = _nrTransfers;
        emit AttestationLimitUpdate(anchor, tokenByAnchor[anchor], _nrTransfers, msg.sender);
     }
 
-    function attestedTransferLimit(bytes32 anchor) public view returns (uint256 limit) {
+    function attestationLimit(bytes32 anchor) public view returns (uint256 limit) {
         if(attestedTransferLimitByAnchor[anchor] > 0) { // Per anchor overwrites always, even if smaller than globalAttestedTransferLimit
             return attestedTransferLimitByAnchor[anchor];
         } 
@@ -87,7 +87,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
     function attestationUsagesLeft(bytes32 anchor) public view returns (uint256 nrTransfersLeft) {
         // FIXME panics when attestationsUsedByAnchor > attestedTransferLimit 
         // since this should never happen, maybe ok?
-        return attestedTransferLimit(anchor) - attestationsUsedByAnchor[anchor];
+        return attestationLimit(anchor) - attestationsUsedByAnchor[anchor];
     }
 
     /// ###############################################################################################################################
@@ -107,10 +107,6 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         emit FloatingAllStateChange(doFloatAll, msg.sender);
     }
 
-    function _afterAnchorMint(address /*to*/, bytes32 anchor, uint256 /*tokenId*/) internal override(ERC6956) virtual {
-        // The floating state of each token needs to be announced
-        emit FloatingStateChange(anchor, tokenByAnchor[anchor], floating(anchor), msg.sender);      
-    }
 
     function _floating(bool defaultFloatState, FloatState anchorFloatState) internal pure returns (bool floats) {
         if(anchorFloatState == FloatState.Default) {
@@ -133,7 +129,7 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         }
 
         floatingStateByAnchor[anchor] = newFloatState;
-        emit FloatingStateChange(anchor, tokenByAnchor[anchor], willFloat, msg.sender);
+        emit FloatingStateChange(anchor, tokenByAnchor[anchor], newFloatState, msg.sender);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
@@ -187,9 +183,9 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
     constructor(
         string memory _name, 
         string memory _symbol, 
-        AttestationLimitUpdatePolicy _limitUpdatePolicy)
+        AttestationLimitPolicy _limitUpdatePolicy)
         ERC6956(_name, _symbol) {          
-            transferLimitPolicy = _limitUpdatePolicy;
+            attestationLimitPolicy = _limitUpdatePolicy;
 
         // Note per default no-one change floatability. canStartFloating and canStopFloating needs to be configured first!        
     }
