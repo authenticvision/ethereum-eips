@@ -137,11 +137,17 @@ contract ERC6956 is
         return approveAnchor(attestation, "");
     }
     
-    function updateOracle(address _oracle, bool _trust) public
+    /**
+     * @notice Adds or removes a trusted oracle, used when verifying signatures in `decodeAttestationIfValid()`
+     * @dev Emits OracleUpdate
+     * @param oracle address of oracle
+     * @param doTrust true to add, false to remove
+     */
+    function updateOracle(address oracle, bool doTrust) public
         onlyMaintainer() 
     {
-        _trustedOracles[_oracle] = _trust;
-        emit OracleUpdate(_oracle, _trust);
+        _trustedOracles[oracle] = doTrust;
+        emit OracleUpdate(oracle, doTrust);
     }
 
     /**

@@ -111,7 +111,7 @@ const IERC6959ValidAnchors = IERC6956ValidAnchors__factory.createInterface();
 export const IERC6956ValidAnchorsInterfaceId = getInterfaceID(IERC6959ValidAnchors);
 */
 
-export const IERC6956InterfaceId = '0xc4e23101';
-export const IERC6956AttestationLimitedInterfaceId ='0xe3787865'
-export const IERC6956FloatableInterfaceId = '0xb5a99656';
-export const IERC6956ValidAnchorsInterfaceId = '0x28a8f107';
+export const IERC6956InterfaceId = '0x11a34d83';
+export const IERC6956AttestationLimitedInterfaceId ='0x491776ca'
+export const IERC6956FloatableInterfaceId = '0x8cf5beaf';
+export const IERC6956ValidAnchorsInterfaceId = '0x051c9bd8';

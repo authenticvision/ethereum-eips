@@ -43,15 +43,6 @@ interface IERC6956 {
     function attestationsUsedByAnchor(bytes32 anchor) external view returns (uint256 usageCount);
     function decodeAttestationIfValid(bytes memory attestation, bytes memory data) external view returns (address to, bytes32 anchor, bytes32 attestationHash);
 
-
-    /**
-     * @notice Adds or removes a trusted oracle, used when verifying signatures in `decodeAttestationIfValid()`
-     * @dev Emits OracleUpdate
-     * @param _oracle address of oracle
-     * @param _isTrusted true to add, false to remove
-     */
-    function updateOracle(address _oracle, bool _isTrusted) external;
-
     /**
      * @notice Transfers the ownership of an NFT mapped to attestation.anchor to attestation.to address. Uses ERC-721 safeTransferFrom and safeMint.
      * @dev Permissionless, i.e. anybody invoke and sign a transaction. The transfer is authorized through the oracle-signed attestation. 

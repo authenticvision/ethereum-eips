@@ -12,8 +12,6 @@ interface IERC6956Floatable is IERC6956 {
         Anchored // 2
     }
 
-    function updateFloatingAuthorization(Authorization startFloatingAuthorization, Authorization stopFloatingAuthorization) external;
-
     function float(bytes32 anchor, FloatState newState) external;
     function floatAll(bool allFloating) external; // true ... FloatState.Floating, false ... FloatState.Anchored
 
