@@ -38,10 +38,10 @@ interface IERC6956 {
     event AttestationUse(address indexed to, bytes32 indexed anchor, bytes32 indexed attestationHash, uint256 totalUsedAttestationsForAnchor);
 
     // state requesting methods
-    function anchorByToken(uint256 tokenId) external view returns (bytes32 anchor);
-    function tokenByAnchor(bytes32 anchor) external view returns (uint256 tokenId);
-    function attestationsUsedByAnchor(bytes32 anchor) external view returns (uint256 usageCount);
-    function decodeAttestationIfValid(bytes memory attestation, bytes memory data) external view returns (address to, bytes32 anchor, bytes32 attestationHash);
+    function anchorByToken(uint256 tokenId) external returns (bytes32 anchor);
+    function tokenByAnchor(bytes32 anchor) external returns (uint256 tokenId);
+    function attestationsUsedByAnchor(bytes32 anchor) external returns (uint256 usageCount);
+    function decodeAttestationIfValid(bytes memory attestation, bytes memory data) external returns (address to, bytes32 anchor, bytes32 attestationHash);
 
     /**
      * @notice Transfers the ownership of an NFT mapped to attestation.anchor to attestation.to address. Uses ERC-721 safeTransferFrom and safeMint.
@@ -55,13 +55,10 @@ interface IERC6956 {
      * @param attestation Attestation, refer EIP-6956 for details
      * @param data Additional data, may be used for additional transfer-conditions, may be sent partly or in full in a call to safeTransferFrom
      * 
-     * @return anchor The anchor, which is mapped to `tokenId`
-     * @return to The `to` address, where the token with `tokenId` was transferd
-     * @return tokenId The tokenId, which is mapped to the `anchor`
      */
-    function transferAnchor(bytes memory attestation, bytes memory data) external returns (bytes32 anchor, address to, uint256 tokenId);
+    function transferAnchor(bytes memory attestation, bytes memory data) external;
 
-    function transferAnchor(bytes memory attestation) external returns (bytes32 anchor, address to, uint256 tokenId);
+    function transferAnchor(bytes memory attestation) external;
 
      /**
      * @notice Approves attestation.to the token mapped to attestation.anchor. Uses ERC-721.approve(to, tokenId).

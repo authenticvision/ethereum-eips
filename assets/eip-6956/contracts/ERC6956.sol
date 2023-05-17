@@ -277,8 +277,9 @@ contract ERC6956 is
     }
 
     function transferAnchor(bytes memory attestation, bytes memory data) public virtual
-        returns (bytes32 anchor, address to, uint256 tokenId)
-    {        
+    {      
+        bytes32 anchor;
+        address to;
         bytes32 attestationHash;
         (to, anchor, attestationHash) = decodeAttestationIfValid(attestation, data);
         _commitAttestation(to, anchor, attestationHash); // commit already here, will be reverted in error case anyway
@@ -295,11 +296,9 @@ contract ERC6956 is
         } else {
             _safeMint(to, anchor);
         }
-
-        return (anchor, to, tokenId);
     }
 
-    function transferAnchor(bytes memory attestation) public virtual returns (bytes32 anchor, address to, uint256 tokenId){
+    function transferAnchor(bytes memory attestation) public virtual {
         return transferAnchor(attestation, "");
     }
     
