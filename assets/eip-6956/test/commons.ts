@@ -75,43 +75,7 @@ export async function createAttestationWithData(to, anchor, signer, merkleTree, 
 }
 
 
-
-
-// ##################### Interface-IDs
-/*import { IERC6956__factory } from "../typechain-types/factories/contracts/IERC6956__factory";
-import { IERC6956Floatable__factory } from "../typechain-types/factories/contracts/IERC6956Floatable__factory";
-import { IERC6956AttestationLimited__factory } from "../typechain-types/factories/contracts/IERC6956AttestationLimited__factory";
-import {  IERC6956ValidAnchors__factory } from "../typechain-types/factories/contracts/IERC6956ValidAnchors__factory";
-
-
-function getInterfaceID(contractInterface: ethers.utils.Interface) {
-    let interfaceID: ethers.BigNumber = ethers.constants.Zero;
-    const functions: string[] = Object.keys(contractInterface.functions);
-    for (let i=0; i< functions.length; i++) {
-        interfaceID = interfaceID.xor(contractInterface.getSighash(functions[i]));
-    }
-
-    const initialHexStr = interfaceID.toHexString();
-    // zero-pad it...
-    return initialHexStr.replace('0x', '0x' + "0".repeat(10-initialHexStr.length))   
-  }
-
-
-
-const IERC6956Interface = IERC6956__factory.createInterface();
-export const IERC6956InterfaceId = getInterfaceID(IERC6956Interface);
-
-const IERC6956AttestationLimitedInterface = IERC6956AttestationLimited__factory.createInterface();
-export const IERC6956AttestationLimitedInterfaceId = getInterfaceID(IERC6956AttestationLimitedInterface);
-
-const IERC6959FloatableInterface = IERC6956Floatable__factory.createInterface();
-export const IERC6956FloatableInterfaceId = getInterfaceID(IERC6959FloatableInterface);
-
-const IERC6959ValidAnchors = IERC6956ValidAnchors__factory.createInterface();
-export const IERC6956ValidAnchorsInterfaceId = getInterfaceID(IERC6959ValidAnchors);
-*/
-
-export const IERC6956InterfaceId = '0x11a34d83';
+export const IERC6956InterfaceId = '0xa9cf7635';
 export const IERC6956AttestationLimitedInterfaceId ='0x491776ca'
-export const IERC6956FloatableInterfaceId = '0x8cf5beaf';
+export const IERC6956FloatableInterfaceId = '0xdfd691a6';
 export const IERC6956ValidAnchorsInterfaceId = '0x051c9bd8';

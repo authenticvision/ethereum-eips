@@ -151,18 +151,16 @@ describe("Authorization Map tests", function () {
 
 
     describe("Attestation-based transfers", function () {
-      it("SHOULD only allow oracle to issue attestation", async function () {
+      it("SHOULD not allow non-trusted oracles to issue attestation", async function () {
         // Create the message to sign
         const { abnftContract, oracle, mallory, gasProvider } = await loadFixture(deployAbNftFixture);      
 
         const to = "0x1234567890123456789012345678901234567890";
         const anchor = merkleTestAnchors[0][0];
         const attestation = await createAttestation(to, anchor, oracle);
-        expect(await abnftContract['assertAttestation(bytes)'](attestation))
-          .to.be.equal(true);
 
         const fraudAttestation = await createAttestation(to, anchor, mallory);
-        await expect(abnftContract['assertAttestation(bytes)'](fraudAttestation))
+        await expect(abnftContract['transferAnchor(bytes)'](fraudAttestation))
           .to.be.revertedWith("ERC6956-E8");
       });
 

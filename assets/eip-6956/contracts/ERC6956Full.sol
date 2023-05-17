@@ -32,10 +32,8 @@ import "./IERC6956ValidAnchors.sol";
  * E27   | Updating attestedTransferLimit violates policy
  */
 contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, IERC6956ValidAnchors {
-
-    uint256 private _canStartFloatingMap;
-    uint256 private _canStopFloatingMap;
-
+    Authorization public floatStartAuthorization;
+    Authorization public floatStopAuthorization;
 
     /// ###############################################################################################################################
     /// ##############################################################################################  IERC6956AttestedTransferLimited
@@ -47,7 +45,6 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
     uint256 public globalAttestedTransferLimitByAnchor;
     AttestationLimitUpdatePolicy public transferLimitPolicy;
 
-    
     bool public allFloating;
 
     /// @dev The merkle-tree root node, where proof is validated against. Update via updateValidAnchors(). Use salt-leafs in merkle-trees!
@@ -99,8 +96,8 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
     
     function updateFloatingAuthorization(Authorization startAuthorization, Authorization stopAuthorization) public
         onlyMaintainer() {
-            _canStartFloatingMap = createAuthorizationMap(startAuthorization);
-            _canStopFloatingMap = createAuthorizationMap(stopAuthorization);
+            floatStartAuthorization = startAuthorization;
+            floatStopAuthorization = stopAuthorization;
             emit FloatingAuthorizationChange(startAuthorization, stopAuthorization, msg.sender);
     }
 
@@ -130,9 +127,9 @@ contract ERC6956Full is ERC6956, IERC6956AttestationLimited, IERC6956Floatable, 
         require(willFloat != currentFloatState, "ERC6956-E23");
 
         if(willFloat) {
-            require(_roleBasedAuthorization(anchor, _canStartFloatingMap), "ERC6956-E21");
+            require(_roleBasedAuthorization(anchor, createAuthorizationMap(floatStartAuthorization)), "ERC6956-E21");
         } else {
-            require(_roleBasedAuthorization(anchor, _canStopFloatingMap), "ERC6956-E22");
+            require(_roleBasedAuthorization(anchor, createAuthorizationMap(floatStopAuthorization)), "ERC6956-E22");
         }
 
         floatingStateByAnchor[anchor] = newFloatState;

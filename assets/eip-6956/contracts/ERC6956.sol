@@ -11,11 +11,16 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./IERC6956.sol";
 
-// Uncomment this line to use console.log
-// import "hardhat/console.sol";
+/** Used for several authorization mechansims, e.g. who can burn, who can set approval, ... 
+ * @dev Specifying the role in the ecosystem. Used in conjunction with IERC6956.Authorization
+ */
+enum Role {
+    OWNER,  // =0, The owner of the digital token
+    ISSUER, // =1, The issuer (contract) of the tokens, typically represented through a MAINTAINER_ROLE, the contract owner etc.
+    ASSET,  // =2, The asset identified by the anchor
+    INVALID // =3, Reserved, do not use.
+}
 
-// TODO RENAME TO ERC6956 once granted, then derived contracts can say 'is ERC6956', when the reference
-// implementation shall be used
 
 /**
  * @title 
@@ -32,7 +37,7 @@ import "./IERC6956.sol";
  * E4    | batchSize must be 1
  * E5    | Token not transferable
  * E6    | Token already owned
- * E7    | Not authorized
+ * E7    | Not authorized based on ERC6956Authorization
  * E8    | Attestation not signed by trusted oracle
  * E9    | Attestation already used
  * E10   | Attestation not valid yet
@@ -77,10 +82,11 @@ contract ERC6956 is
     /// @dev Default validity timespan of attestation. In validateAttestation the attestationTime is checked for MIN(defaultAttestationvalidity, attestation.expiry)
     uint256 public maxAttestationExpireTime = 5*60; // 5min valid per default
 
-    uint256 private _burnAuthorizationMap;
-    uint256 private _approveAuthorizationMap;
+    Authorization public burnAuthorization;
+    Authorization public approveAuthorization;
 
-/// @dev Records the number of transfers done for each attestation
+
+    /// @dev Records the number of transfers done for each attestation
     mapping(bytes32 => uint256) public attestationsUsedByAnchor;
 
     modifier onlyMaintainer() {
@@ -97,15 +103,15 @@ contract ERC6956 is
      * @param tokenId The token that shall be burned
      */
     function burn(uint256 tokenId) public override
-     {
+    {
         // remember the tokenId of burned tokens, s.t. one can issue the token with the same number again
         bytes32 anchor = anchorByToken[tokenId];
-        require(_roleBasedAuthorization(anchor, _burnAuthorizationMap), "ERC6956-E2");
+        require(_roleBasedAuthorization(anchor, createAuthorizationMap(burnAuthorization)), "ERC6956-E2");
         _burn(tokenId);
     }
 
     function burnAnchor(bytes memory attestation, bytes memory data) public virtual
-        authorized(Role.ASSET, _burnAuthorizationMap)
+        authorized(Role.ASSET, createAuthorizationMap(burnAuthorization))
      {
         address to;
         bytes32 anchor;
@@ -122,7 +128,7 @@ contract ERC6956 is
     }
 
     function approveAnchor(bytes memory attestation, bytes memory data) public virtual 
-        authorized(Role.ASSET, _approveAuthorizationMap)
+        authorized(Role.ASSET, createAuthorizationMap(approveAuthorization))
     {
         address to;
         bytes32 anchor;
@@ -131,6 +137,14 @@ contract ERC6956 is
         _commitAttestation(to, anchor, attestationHash);
         require(tokenByAnchor[anchor]>0, "ERC6956-E3");
         _approve(to, tokenByAnchor[anchor]);
+    }
+
+    // approveAuth == ISSUER does not really make sense.. so no separate implementation, since ERC-721.approve already implies owner...
+
+    function approve(address to, uint256 tokenId) public virtual override(ERC721,IERC721)
+        authorized(Role.OWNER, createAuthorizationMap(approveAuthorization))
+    {
+        super.approve(to, tokenId);
     }
 
     function approveAnchor(bytes memory attestation) public virtual {
@@ -366,16 +380,6 @@ contract ERC6956 is
         return(to,  anchor, attestationHash);
     }
 
-    function assertAttestation(bytes memory attestation, bytes memory data) 
-        public virtual view returns (bool) {
-            decodeAttestationIfValid(attestation, data);
-            return true;        
-    }
-
-    function assertAttestation(bytes memory attestation) public virtual view returns (bool) {
-        return assertAttestation(attestation, "");
-    }
-
     /// @notice Compatible with ERC721.tokenURI(). Returns {baseURI}{anchor}
     /// @dev Returns when called for tokenId=5, baseURI=https://myurl.com/collection/ and anchorByToken[5] =  0x12345
     /// Example:  https://myurl.com/collection/0x12345
@@ -406,17 +410,17 @@ contract ERC6956 is
     }
     event BurnAuthorizationChange(Authorization burnAuth, address indexed maintainer);
 
-    function updateBurnAuthorization(Authorization _burnAuth) public onlyMaintainer() {
-        _burnAuthorizationMap = createAuthorizationMap(_burnAuth);
-        emit BurnAuthorizationChange(_burnAuth, msg.sender);
+    function updateBurnAuthorization(Authorization burnAuth) public onlyMaintainer() {
+        burnAuthorization = burnAuth;
+        emit BurnAuthorizationChange(burnAuth, msg.sender);
         // TODO event
     }
     
     event ApproveAuthorizationChange(Authorization approveAuth, address indexed maintainer);
 
-    function updateApproveAuthorization(Authorization _approveAuth) public onlyMaintainer() {
-        _approveAuthorizationMap = createAuthorizationMap(_approveAuth);
-        emit ApproveAuthorizationChange(_approveAuth, msg.sender);
+    function updateApproveAuthorization(Authorization approveAuth) public onlyMaintainer() {
+        approveAuthorization = approveAuth;
+        emit ApproveAuthorizationChange(approveAuth, msg.sender);
 
         // TODO event
     }
@@ -428,8 +432,8 @@ contract ERC6956 is
 
             // OWNER and ASSET shall normally be in sync anyway, so this is reasonable default 
             // authorization for approve and burn, as it mimicks ERC-721 behavior
-            _burnAuthorizationMap = createAuthorizationMap(Authorization.OWNER_AND_ASSET);
-            _approveAuthorizationMap = createAuthorizationMap(Authorization.OWNER_AND_ASSET);
+            burnAuthorization = Authorization.OWNER_AND_ASSET;
+            approveAuthorization = Authorization.OWNER_AND_ASSET;
     }
   
     /*

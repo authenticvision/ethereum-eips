@@ -13,8 +13,6 @@ export enum FloatState {
   Anchored // 2
 }
 
-
-
 describe("ERC6956: Asset-Bound NFT --- Full", function () {
   // Fixture to deploy the abnftContract contract and assigne roles.
   // Besides owner there's user, minter and burner with appropriate roles.
